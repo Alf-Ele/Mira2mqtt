@@ -1,0 +1,14 @@
+sudo apt install python3 python3-venv python3-pip tesseract-ocr tesseract-ocr-deu ffmpeg libsm6 libxext6 
+
+# Create and use python environment
+sudo su -
+mkdir -p /opt/OvumMiraVNCConnector/.venv
+python3 -m venv /opt/OvumMiraVNCConnector/.venv
+. /opt/OvumMiraVNCConnector/.venv/bin/activate
+
+# Install python packages
+python3 -m pip install --upgrade pip
+python3 -m pip install opencv-python
+python3 -m pip install vncdotool
+python3 -m pip install pytesseract
+python3 -m pip install paho-mqtt
