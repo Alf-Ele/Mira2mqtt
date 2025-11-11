@@ -26,6 +26,7 @@ CONFIG = {
     'OvumHostname': '192.168.123.45',
     'OvumVNCPort': 5900,
     'OCRLanguage': 'deu',
+    'locale': 'de_DE.UTF-8',
     'TesseractPath': '/usr/bin/tesseract',
     'mqttUsage': False,
     'mqttBroker': 'hera.cbshome.de',

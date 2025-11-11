@@ -1,3 +1,4 @@
+import locale
 import os
 import re
 import cv2
@@ -18,6 +19,9 @@ class MiraRegion:
     preProcessing: str = None
     ocrConfig = None
     language = None
+    numlocale = None
+    decpt = None
+    wrong_decpt = None
 
     def __init__(self,
                  key: str,
@@ -26,7 +30,8 @@ class MiraRegion:
                  coordinates: tuple[int, int, int, int],
                  preprocessing: str,
                  ocrconfig: str,
-                 language: str):
+                 language: str,
+                 numlocale: str):
         """
         Constructor of a MiraRegion.
         :param key: Region key (unique identifier)
@@ -44,6 +49,11 @@ class MiraRegion:
         self.preProcessing = preprocessing
         self.ocrConfig = ocrconfig
         self.language = language
+        self.numlocale = numlocale
+
+        # Get correct and wrong decimal point in case of parsing errors
+        self.decpt = self.get_decimal_separator()
+        self.wrong_decpt = '.' if self.decpt == ',' else ','
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
             self.DEBUG_OUTPUT = True
@@ -178,6 +188,32 @@ class MiraRegion:
                 print ("... retrieved text after %s pre-processing: '%s'" % (pp, self.retrieve_text().strip()))
 
         return self.retrieve_text().strip()
+    # end process_and_retrieve()
+
+    def get_decimal_separator(self) -> chr:
+        """
+            Sets the locale and returns the decimal point character.
+        """
+        try:
+            # Set the locale for numeric formatting
+            locale.setlocale(locale.LC_NUMERIC, self.numlocale)
+
+            # Get the locale conventions
+            settings = locale.localeconv()
+
+            # Extract the decimal point character
+            decimal_char = settings['decimal_point']
+
+            return decimal_char
+
+        except locale.Error as e:
+            print(f"Error setting locale to {self.numlocale}: {e}")
+            return None
+        finally:
+            # reset the locale
+            locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
+            pass
+    # end get_decimal_separator()
 
     def process_numeric_values(self) -> dict:
         # Return data set
@@ -206,15 +242,31 @@ class MiraRegion:
 
             # Extract values (temperature or power)
             match_temp = re.search(r"(\d{1,2},\d)\s*°C", current_text)
+            match_energy = re.search(r"(\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", current_text)
             match_power = re.search(r"(\d+[.,]?\d*)\s*(kW|W|kw|KW)", current_text)
 
             if match_temp:
-                data[current_key] = match_temp.group(1) + " °C"
+                # Fix wrong decimal point
+                value = match_temp.group(1).replace(self.wrong_decpt, self.decpt)
+                data[current_key] = value + " °C"
+            elif match_energy:
+                # Fix wrong decimal point
+                value = match_energy.group(1).replace(self.wrong_decpt, self.decpt)
+                # Correct uper/lower case errors in unit
+                unit = (match_energy.group(2)).replace("w", "W")
+                unit = unit.replace("KW", "kW")
+                unit = unit.replace("kw", "kW")
+                unit = unit.replace("mw", "MW")
+                unit = unit.replace("Mw", "MW")
+                data[current_key] = value + " " + unit
             elif match_power:
+                # Fix wrong decimal point
+                value = match_power.group(1).replace(self.wrong_decpt, self.decpt)
                 # Correct uper/lower case errors in unit
                 unit = (match_power.group(2)).replace("w", "W")
                 unit = unit.replace("KW", "kW")
-                data[current_key] = match_power.group(1) + " " + unit
+                unit = unit.replace("kw", "kW")
+                data[current_key] = value + " " + unit
             else:
                 data[current_key] = "N/A"
 

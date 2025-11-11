@@ -133,20 +133,22 @@ class MiraDataCollector:
         data = self.data
 
         # Set locale for parsing localized values
-        if self.config['OCRLanguage'] == 'deu':
-            locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
-        elif self.config['OCRLanguage'] == 'fra':
-            locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
-        elif self.config['OCRLanguage'] == 'ita':
-            locale.setlocale(locale.LC_ALL, 'it_IT.UTF-8')
-        elif self.config['OCRLanguage'] == 'nld':
-            locale.setlocale(locale.LC_ALL, 'nl_NL.UTF-8')
-        else:
-            locale.setlocale(locale.LC_ALL, 'en_GB.UTF-8')
+        locale.setlocale(locale.LC_ALL, self.config['locale'])
 
         # Cleanup and parse numeric data before publishing
         for key, value in data.items():
-            if str(value).endswith(" kW"):
+            if str(value).endswith(" kWh"):
+                print (f"Detected energy in kWh for {key}='{value}'")
+                value = str(value).removesuffix(" kWh")
+                numvalue = locale.atof(value)
+                data[key] = str(numvalue)
+            elif str(value).endswith(" MWh"):
+                print(f"Detected energy in MWh for {key}='{value}'")
+                value = str(value).removesuffix(" MWh")
+                numvalue = locale.atof(value)
+                numvalue *= 1000
+                data[key] = str(numvalue)
+            elif str(value).endswith(" kW"):
                 value = str(value).removesuffix(" kW")
                 numvalue = locale.atof(value)
                 numvalue *= 1000
@@ -159,6 +161,11 @@ class MiraDataCollector:
                 value = str(value).removesuffix(" °C")
                 numvalue = locale.atof(value)
                 data[key] = str(numvalue)
+            else:
+                numvalue = str(value)
+
+            if self.DEBUG_OUTPUT and numvalue is not None:
+                print (f"Cleaned value for {key} = '{numvalue}'")
 
         # Publish data
         self.mqtt_publish(self.config['mqttTopicPrefix'] + self.config['mqttInfoTopic'],
@@ -320,6 +327,7 @@ class MiraPage(MiraDataCollector):
                                             region_config['coordinates'],
                                             region_config['preProcessing'],
                                             region_config['ocrConfig'],
-                                            self.config['OCRLanguage'])
+                                            self.config['OCRLanguage'],
+                                            self.config['locale'])
 
             self.data.update(region.process_numeric_values())
