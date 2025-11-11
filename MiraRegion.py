@@ -1,3 +1,13 @@
+"""
+Connect to an Ovum heatpump via VNC and extract data from the Mira user interface.
+
+Check here for more details:
+https://github.com/Schneydr/Mira2mqtt
+
+@author Schneydr
+@date 2025/11/11
+"""
+
 import locale
 import os
 import re
@@ -20,8 +30,8 @@ class MiraRegion:
     ocrConfig = None
     language = None
     numlocale = None
+    real_decpt = None
     decpt = None
-    wrong_decpt = None
 
     def __init__(self,
                  key: str,
@@ -31,7 +41,8 @@ class MiraRegion:
                  preprocessing: str,
                  ocrconfig: str,
                  language: str,
-                 numlocale: str):
+                 numlocale: str,
+                 decpt: str):
         """
         Constructor of a MiraRegion.
         :param key: Region key (unique identifier)
@@ -50,10 +61,10 @@ class MiraRegion:
         self.ocrConfig = ocrconfig
         self.language = language
         self.numlocale = numlocale
+        self.decpt = decpt
 
-        # Get correct and wrong decimal point in case of parsing errors
-        self.decpt = self.get_decimal_separator()
-        self.wrong_decpt = '.' if self.decpt == ',' else ','
+        # Get correct decimal point in case of parsing errors
+        self.real_decpt = self.get_decimal_separator()
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
             self.DEBUG_OUTPUT = True
@@ -247,11 +258,17 @@ class MiraRegion:
 
             if match_temp:
                 # Fix wrong decimal point
-                value = match_temp.group(1).replace(self.wrong_decpt, self.decpt)
+                if self.decpt is not None:
+                    value = match_temp.group(1).replace(self.decpt, self.real_decpt)
+                else:
+                    value = match_temp.group(1)
                 data[current_key] = value + " °C"
             elif match_energy:
                 # Fix wrong decimal point
-                value = match_energy.group(1).replace(self.wrong_decpt, self.decpt)
+                if self.decpt is not None:
+                    value = match_energy.group(1).replace(self.decpt, self.real_decpt)
+                else:
+                    value = match_energy.group(1)
                 # Correct uper/lower case errors in unit
                 unit = (match_energy.group(2)).replace("w", "W")
                 unit = unit.replace("KW", "kW")
@@ -261,7 +278,10 @@ class MiraRegion:
                 data[current_key] = value + " " + unit
             elif match_power:
                 # Fix wrong decimal point
-                value = match_power.group(1).replace(self.wrong_decpt, self.decpt)
+                if self.decpt is not None:
+                    value = match_power.group(1).replace(self.decpt, self.real_decpt)
+                else:
+                    value = match_power.group(1)
                 # Correct uper/lower case errors in unit
                 unit = (match_power.group(2)).replace("w", "W")
                 unit = unit.replace("KW", "kW")

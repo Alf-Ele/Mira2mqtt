@@ -8,7 +8,7 @@ Check here for more details:
 https://github.com/Schneydr/Mira2mqtt
 
 @author Schneydr
-@date 2025/11/9
+@date 2025/11/11
 """
 
 import os
@@ -97,15 +97,18 @@ CONFIG = {
                 'HeatingEnergy': {
                     'coordinates': (66, 836, 160, 866),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6'},
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'decpt': '.'},
                 'HotWaterEnergy': {
                     'coordinates': (66, 870, 160, 900),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6'},
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'decpt': '.'},
                 'NetworkEnergy': {
                     'coordinates': (310, 836, 400, 866),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6'}
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'decpt': '.'}
             }
         }
     }

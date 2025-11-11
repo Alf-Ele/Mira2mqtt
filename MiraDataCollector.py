@@ -1,3 +1,13 @@
+"""
+Connect to an Ovum heatpump via VNC and extract data from the Mira user interface.
+
+Check here for more details:
+https://github.com/Schneydr/Mira2mqtt
+
+@author Schneydr
+@date 2025/11/11
+"""
+
 import datetime
 import locale
 import logging
@@ -321,6 +331,8 @@ class MiraPage(MiraDataCollector):
             if 'secondaryKey' in region_config.keys():
                 secondarykey = region_config['secondaryKey']
 
+            decpt = region_config['decpt'] if 'decpt' in region_config else None
+
             region: MiraRegion = MiraRegion(key,
                                             secondarykey,
                                             image,
@@ -328,6 +340,7 @@ class MiraPage(MiraDataCollector):
                                             region_config['preProcessing'],
                                             region_config['ocrConfig'],
                                             self.config['OCRLanguage'],
-                                            self.config['locale'])
+                                            self.config['locale'],
+                                            decpt)
 
             self.data.update(region.process_numeric_values())
