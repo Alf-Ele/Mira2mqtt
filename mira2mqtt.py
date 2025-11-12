@@ -23,13 +23,17 @@ DEBUG_IMAGE_WRITING = True
 
 """Configuration"""
 CONFIG = {
+    # Heat pump connection data
     'OvumHostname': '192.168.123.45',
     'OvumVNCPort': 5900,
+
+    # OCR language and locale must match the language setting in Mira
     'OCRLanguage': 'deu',
     'locale': 'de_DE.UTF-8',
-    'TesseractPath': '/usr/bin/tesseract',
+
+    # MQTT configuration
     'mqttUsage': False,
-    'mqttBroker': 'hera.cbshome.de',
+    'mqttBroker': 'localhost',
     'mqttPort': 1883,
     'mqttClientId': 'MiraDataCollector',
     'mqttUser': 'mira',
@@ -37,16 +41,50 @@ CONFIG = {
     'mqttTopicPrefix': 'ovum/',
     'mqttStatusTopic': 'status',
     'mqttInfoTopic': 'info',
-    'HomeButtonCoordinates': [10, 10],
+
+    # Path to the tesseract binary
+    'TesseractPath': '/usr/bin/tesseract',
+
+    # For debugging, you can set to True to inspect screenshots
+    'DebugKeepScreenshots': False,
+    # For debugging, you can set to False to keep region images even
+    # after text could be retrieved successfully
+    'DebugDeleteImageAfterSuccess': True,
+
+    # Pages we want to access in the Mira UI
+    # For each page we define a unique name followed by the page configuration.
     'Pages': {
         'Home': {
-            'MouseMovesAndClicks': None,
-            'MandatoryText': ('Wärmepumpen', 'Netzleistung', 'Umwelt'),
+            # For each page we need to define how we can access the page
+            # by setting coordinates where we will "click".
+            'MouseMovesAndClicks': [
+                # x and y coordinates
+                {'moveTo': [10,10],
+                 # optional list of mandatory text we will check the page content for.
+                 'MandatoryText': ['Wärmepumpe','Netzleistung','Umwelt']}
+            ],
+            # Within the page we now need to define at least one region
+            # where we want to retrieve data
             'Regions': {
+                # Key of the region, must be unique over all pages and regions
                 'OutdoorTemp': {
+                    # Optionally, you can define a secondary key in case we want to
+                    # retrieve secondary data which follows the primary data,
+                    # separated by brackets (...)
                     'secondaryKey': 'OutdoorTempCurrent',
+                    # Coordinates of the region
+                    # x/y top left and x/y bottom right
                     'coordinates': (50, 80, 195, 100),
+                    # Optional pre-processing needed for OCR
+                    # (grayscale is always performed).
+                    # You can choose from the following options. You can also use several
+                    # options by combining them with the “+” sign:
+                    #   contrast
+                    #   invert
+                    #   denoise
+                    #   thresh -> adaptive thresholding
                     'preProcessing': 'contrast+invert+denoise',
+                    # tesseract OCR configuration to enhance data retrieval
                     'ocrConfig': '--oem 3 --psm 6' },
                 'NetworkPower': {
                     'coordinates': (10, 250, 110, 290),
@@ -76,13 +114,18 @@ CONFIG = {
                     'coordinates': (205, 770, 305, 808),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': ''},
-                'HotWaterTarget': {
+                'HotWaterMode': {
                     'coordinates': (60, 806, 558, 835),
-                    'preProcessing': 'contrast+invert+denoise',
+                    'secondaryKey': 'HotWaterTarget',
+                    'preProcessing': 'contrast+invert+denoise+thresh',
                     'ocrConfig': '--oem 3 --psm 6'},
             }
         },
         'Statistics': {
+            # In order to retrieve the data we need, it is sometimes
+            # necessary to perform a long sequence of mouse clicks.
+            # Here we want to access the daily statistics, and we want
+            # the power consumption to take defrosting into account.
             'MouseMovesAndClicks': [
                 {'moveTo': [450,960],
                  'MandatoryText': ['Wärmepumpe','Heizen','Warmwasser','Statistik']},
@@ -114,7 +157,6 @@ CONFIG = {
     }
 }
 
-#OvumMiraVNCConnector().main()
 os.environ["DEBUG_OUTPUT"] = "1" if DEBUG_OUTPUT else "0"
 os.environ["DEBUG_IMAGE_WRITING"] = "1" if DEBUG_IMAGE_WRITING else "0"
 
