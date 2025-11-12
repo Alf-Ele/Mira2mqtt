@@ -12,7 +12,7 @@ sudo apt update
 sudo apt install python3 python3-venv python3-pip tesseract-ocr ffmpeg libsm6 libxext6 git
 ```
 
-### Aditionally install OCR language package
+### Install OCR language package
 You must install a special language pack for the language in which your Mira user interface is currently configured (not required for English).
 Example for German:
 ```
@@ -24,7 +24,7 @@ apt install tesseract-ocr-deu
 git clone https://github.com/Schneydr/Mira2mqtt.git
 ```
 
-### Create and use python environment
+### Create and prepare python environment
 ```
 cd Mira2mqtt
 mkdir -p .venv
@@ -40,8 +40,8 @@ python3 -m pip install paho-mqtt
 ```
 
 ### Configure 
-You need to set at least the hostname or ip address of your heat pump within your local network. Furthermore, you shoud configure the language and locale matching the setting of your Mira UI.
-In case you want to use MQTT you have to activate MQTT and configure broker ip address, port, user and password.
+You need to set at least the hostname or ip address of your heat pump within your local network. Furthermore, you should configure the language and locale matching the setting of your Mira UI.
+In case you want to use MQTT you have to activate MQTT usage and configure broker ip address, port, user and password.
 ```
 nano mira2mqtt.py
 ```
