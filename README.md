@@ -41,6 +41,9 @@ python3 -m pip install paho-mqtt
 
 ### Configure 
 You need to set at least the hostname or ip address of your heat pump within your local network. Furthermore, you should configure the language and locale matching the setting of your Mira UI.
+
+If your UI language is not German you should also change the mandatory text configurations.
+
 In case you want to use MQTT you have to activate MQTT usage and configure broker ip address, port, user and password.
 ```
 nano mira2mqtt.py
