@@ -8,7 +8,9 @@ https://github.com/Schneydr/Mira2mqtt
 @date 2025/11/11
 """
 
+import datetime
 import locale
+import glob
 import os
 import re
 import cv2
@@ -32,6 +34,9 @@ class MiraRegion:
     numlocale = None
     real_decpt = None
     decpt = None
+    img_prefix = None
+
+    DebugDeleteImageAfterSuccess = False
 
     def __init__(self,
                  key: str,
@@ -63,6 +68,10 @@ class MiraRegion:
         self.numlocale = numlocale
         self.decpt = decpt
 
+        #cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        self.img_prefix = f'processed-{key}-{timestamp}-'
+
         # Get correct decimal point in case of parsing errors
         self.real_decpt = self.get_decimal_separator()
 
@@ -71,6 +80,9 @@ class MiraRegion:
 
         if "DEBUG_IMAGE_WRITING" in os.environ and os.environ["DEBUG_IMAGE_WRITING"] == "1":
             self.DEBUG_IMAGE_WRITING = True
+
+    def set_debug_delete_image_after_success(self, flag: bool) -> None:
+        self.DebugDeleteImageAfterSuccess = flag
 
     def enhance_contrast(self) -> None:
         """
@@ -175,8 +187,9 @@ class MiraRegion:
         Pre-processes and then retrieves text from a Mira UI region.
         :return: Retrieved text
         """
-        #if "gray" in self.preProcessing: # grayscaling is done automatically
-        cv2.imwrite("processed-gray-" + self.key +  ".png", self.img)
+        # grayscale the image
+        if self.DEBUG_IMAGE_WRITING:
+            cv2.imwrite(f"{self.img_prefix}gray.png", self.img)
 
         if self.DEBUG_OUTPUT:
             print (f"Pre-processing region {self.key} image for: {self.preProcessing}...")
@@ -194,7 +207,7 @@ class MiraRegion:
 
             # For debugging write processed image to file and print out retrived text
             if self.DEBUG_IMAGE_WRITING:
-                cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
+                cv2.imwrite(f"{self.img_prefix}{pp}.png", self.img)
             if self.DEBUG_OUTPUT:
                 print ("... retrieved text after %s pre-processing: '%s'" % (pp, self.retrieve_text().strip()))
 
@@ -288,9 +301,18 @@ class MiraRegion:
                 unit = unit.replace("kw", "kW")
                 data[current_key] = value + " " + unit
             else:
-                data[current_key] = "N/A"
+                #data[current_key] = "N/A"
+                data[current_key] = current_text
 
             i += 1
+
+        if self.DebugDeleteImageAfterSuccess:
+            if self.key in data or self.secondaryKey in data:
+                for f in glob.glob(f"{self.img_prefix}*.png"):
+                    try:
+                        os.remove(f)
+                    except FileNotFoundError:
+                        print(f"File '{f}' could not be deleted.")
 
         return data
     # end processNumericValues()

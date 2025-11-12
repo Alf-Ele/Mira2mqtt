@@ -148,12 +148,10 @@ class MiraDataCollector:
         # Cleanup and parse numeric data before publishing
         for key, value in data.items():
             if str(value).endswith(" kWh"):
-                print (f"Detected energy in kWh for {key}='{value}'")
                 value = str(value).removesuffix(" kWh")
                 numvalue = locale.atof(value)
                 data[key] = str(numvalue)
             elif str(value).endswith(" MWh"):
-                print(f"Detected energy in MWh for {key}='{value}'")
                 value = str(value).removesuffix(" MWh")
                 numvalue = locale.atof(value)
                 numvalue *= 1000
@@ -184,8 +182,11 @@ class MiraDataCollector:
 
     def vnc_connect(self) -> None:
         # Establish VNC connection
-        self.vncclient = api.connect(self.config['OvumHostname']
-                                     + '::' + str(self.config['OvumVNCPort']))
+        connection_target = (self.config['OvumHostname'] + '::'
+                             + str(self.config['OvumVNCPort']))
+        print(f"Connecting to your heat pump on {connection_target}...")
+
+        self.vncclient = api.connect(connection_target)
         time.sleep(1)
     # end vnc_connect()
 
@@ -194,24 +195,13 @@ class MiraDataCollector:
         api.shutdown()
     # end vnc_disconnect()
 
-    def call_homepage(self) -> None:
-        # Open Mira home page
-        # ... first move the mouse to wake up the display
+    def traverse_pages(self) -> None:
+        # First move the mouse to wake up the display
         self.vncclient.mouseMove(100, 100)
         time.sleep(0.5)
-        # ... now press the home button
-        self.vncclient.mouseMove(self.config['HomeButtonCoordinates'][0],
-                                 self.config['HomeButtonCoordinates'][1])
-        time.sleep(0.2)
-        self.vncclient.mousePress(1)
-        time.sleep(2)
-    # end call_homepage()
 
-    def traverse_pages(self) -> None:
         for page, page_config in self.config['Pages'].items():
             print("Processing page %s..." % page)
-            self.call_homepage()
-
             mira_page = MiraPage(self, page)
 
             if page_config['MouseMovesAndClicks'] is not None:
@@ -226,6 +216,7 @@ class MiraDataCollector:
                 continue
 
             mira_page.process_regions()
+            mira_page.delete_screenshot()
             self.data.update(mira_page.data)
 
         print("\nExtracted values:")
@@ -275,6 +266,19 @@ class MiraPage(MiraDataCollector):
             print(f"Screenshot stored: {self.screenshot_path}")
     # end take_screenshot()
 
+    def delete_screenshot(self) -> None:
+        if self.screenshot_path is None:
+            if self.DEBUG_OUTPUT:
+                print("No screenshot to be deleted.")
+        else:
+            if (not 'DebugKeepScreenshots' in self.config
+                    or not self.config['DebugKeepScreenshots']):
+                try:
+                    os.remove(self.screenshot_path)
+                except FileNotFoundError:
+                    print(f"File '{self.screenshot_path}' could not be deleted.")
+    # end delete_screenshot()
+
     def check_mandatory_content(self, mandatory_text: list[str]) -> bool:
         # Check, if mandatory text can be found in page
         # Abort, if not present
@@ -309,6 +313,10 @@ class MiraPage(MiraDataCollector):
             self.take_screenshot()
 
             mandatory_found = self.check_mandatory_content(m['MandatoryText'])
+
+            # Delete screenshot
+            self.delete_screenshot()
+
             if not mandatory_found:
                 return False
         return True
@@ -342,5 +350,9 @@ class MiraPage(MiraDataCollector):
                                             self.config['OCRLanguage'],
                                             self.config['locale'],
                                             decpt)
+
+            if ('DebugDeleteImageAfterSuccess' in self.config
+                and self.config['DebugDeleteImageAfterSuccess']):
+                region.set_debug_delete_image_after_success(True)
 
             self.data.update(region.process_numeric_values())
