@@ -13,7 +13,7 @@ sudo apt install python3 python3-venv python3-pip tesseract-ocr ffmpeg libsm6 li
 ```
 
 ### Aditionally install OCR language package
-For the language your Mira UI is currently configured, you need to install a specific language pack (not needed for English).  
+You must install a special language pack for the language in which your Mira user interface is currently configured (not required for English).
 Example for German:
 ```
 apt install tesseract-ocr-deu
