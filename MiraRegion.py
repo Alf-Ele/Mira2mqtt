@@ -26,10 +26,7 @@ class MiraRegion:
     DEBUG_IMAGE_WRITING = False
 
     key: str = None
-    secondaryKey: str = None
     img: cv2 = None
-    preProcessing: str = None
-    ocrConfig = None
     language = None
     numlocale = None
     real_decpt = None
@@ -41,25 +38,18 @@ class MiraRegion:
     DebugDeleteImageAfterSuccess = False
 
     def __init__(self,
-                 region_config: dict,
                  key: str,
-                 secondarykey: str,
+                 region_config: dict,
                  img: 'cv2',
-                 coordinates: tuple[int, int, int, int],
-                 preprocessing: str,
-                 ocrconfig: str,
                  language: str,
-                 numlocale: str,
-                 decpt: str):
+                 numlocale: str):
         """
         Constructor of a MiraRegion.
         :param key: Region key (unique identifier)
-        :param secondarykey: Optional secondary key for further value in brackets
+        :param region_config: Region confg
         :param img: Mira UI screenshot
-        :param coordinates: Region coordinates
-        :param preprocessing: type of pre-processing needed for OCR
-        :param ocrconfig: tesseract configuration (OCR)
         :param language: OCR language
+        :param numlocale: Locale for numbers
         """
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
@@ -69,15 +59,13 @@ class MiraRegion:
             self.DEBUG_IMAGE_WRITING = True
 
         # Crop and grey scale image from given coordinates
-        self.regionConfig = region_config
         self.key = key
-        self.secondaryKey = secondarykey
-        self.img = cv2.cvtColor(np.array(img.crop(coordinates)), cv2.COLOR_BGR2GRAY)
-        self.preProcessing = preprocessing
-        self.ocrConfig = ocrconfig
+        self.regionConfig = region_config
+        self.img = cv2.cvtColor(np.array(img.crop(region_config['coordinates'])),
+                                cv2.COLOR_BGR2GRAY)
         self.language = language
         self.numlocale = numlocale
-        self.decpt = decpt
+        self.decpt = region_config['decpt'] if 'decpt' in region_config else None
 
         #cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -184,21 +172,22 @@ class MiraRegion:
         """
         return pytesseract.image_to_string(self.img,
                                            lang=self.language,
-                                           config=self.ocrConfig)
+                                           config=self.regionConfig['ocrConfig'])
 
     def process_and_retrieve(self) -> str:
-
         """
         Pre-processes and then retrieves text from a Mira UI region.
         :return: Retrieved text
         """
+        pre_processing = self.regionConfig['preProcessing']
+
         # grayscale the image
         if self.DEBUG_IMAGE_WRITING:
             cv2.imwrite(f"{self.img_prefix}gray.png", self.img)
 
         if self.DEBUG_OUTPUT:
-            print (f"Pre-processing region {self.key} image for: {self.preProcessing}...")
-        for pp in self.preProcessing.split("+"):
+            print (f"Pre-processing region {self.key} image for: {pre_processing}...")
+        for pp in pre_processing.split("+"):
             if pp == "contrast":
                 self.enhance_contrast()
             elif pp == "denoise":
@@ -256,9 +245,6 @@ class MiraRegion:
         # Remove thousands separator
         ret_value = ret_value.replace(self.real_thpt, '')
 
-        if self.DEBUG_OUTPUT:
-            print(f"... value after numeric separators cleansing:'{value}' ->  {ret_value}")
-
         return ret_value
 
     def clean_num_value(self, key: str, value: str) -> str:
@@ -310,6 +296,12 @@ class MiraRegion:
         # Return data set
         data = {}
 
+        # Do we have a secondary key?
+        if 'secondaryKey' in self.regionConfig:
+            secondaryKey = self.regionConfig['secondaryKey']
+        else:
+            secondaryKey = None
+
         # Retrieve text from region
         text = self.process_and_retrieve()
         if MiraRegion.DEBUG_OUTPUT:
@@ -326,10 +318,9 @@ class MiraRegion:
         for current_text in texts:
             current_key = self.key
             if i > 0:
-                if self.secondaryKey is not None:
-                    current_key = self.secondaryKey
-                else:
+                if secondaryKey is None:
                     continue
+                current_key = secondaryKey
 
             if self.DEBUG_OUTPUT:
                 if len(text) > 1:
@@ -378,7 +369,7 @@ class MiraRegion:
             i += 1
 
         if self.DebugDeleteImageAfterSuccess:
-            if self.key in data or self.secondaryKey in data:
+            if self.key in data or secondaryKey in data:
                 for f in glob.glob(f"{self.img_prefix}*.png"):
                     try:
                         os.remove(f)

@@ -305,22 +305,11 @@ class MiraPage(MiraDataCollector):
             if self.DEBUG_OUTPUT:
                 print("Processing region %s..." % key)
 
-            secondarykey = None
-            if 'secondaryKey' in region_config.keys():
-                secondarykey = region_config['secondaryKey']
-
-            decpt = region_config['decpt'] if 'decpt' in region_config else None
-
-            region: MiraRegion = MiraRegion(region_config,
-                                            key,
-                                            secondarykey,
+            region: MiraRegion = MiraRegion(key,
+                                            region_config,
                                             image,
-                                            region_config['coordinates'],
-                                            region_config['preProcessing'],
-                                            region_config['ocrConfig'],
                                             self.config['OCRLanguage'],
-                                            self.config['locale'],
-                                            decpt)
+                                            self.config['locale'])
 
             if ('DebugDeleteImageAfterSuccess' in self.config
                 and self.config['DebugDeleteImageAfterSuccess']):
