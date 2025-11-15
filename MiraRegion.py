@@ -35,10 +35,12 @@ class MiraRegion:
     real_decpt = None
     decpt = None
     img_prefix = None
+    regionConfig = None
 
     DebugDeleteImageAfterSuccess = False
 
     def __init__(self,
+                 region_config: dict,
                  key: str,
                  secondarykey: str,
                  img: 'cv2',
@@ -59,6 +61,7 @@ class MiraRegion:
         :param language: OCR language
         """
         # Crop and grey scale image from given coordinates
+        self.regionConfig = region_config
         self.key = key
         self.secondaryKey = secondarykey
         self.img = cv2.cvtColor(np.array(img.crop(coordinates)), cv2.COLOR_BGR2GRAY)
@@ -239,6 +242,51 @@ class MiraRegion:
             pass
     # end get_decimal_separator()
 
+    def clean_num_value(self, key: str, value: str) -> str:
+        # Set locale for parsing localized values
+        locale.setlocale(locale.LC_ALL, self.numlocale)
+
+        # Cleanup and parse numeric data before publishing
+        strvalue = value
+        numvalue = None
+        if str(value).endswith("kWh"):
+            strvalue = str(value).removesuffix("kWh")
+            numvalue = locale.atof(strvalue)
+        elif str(value).endswith("MWh"):
+            strvalue = str(value).removesuffix("MWh")
+            numvalue = locale.atof(strvalue)
+            numvalue *= 1000
+        elif str(value).endswith("kW"):
+            strvalue = str(value).removesuffix("kW")
+            numvalue = locale.atof(strvalue)
+            numvalue *= 1000
+        elif str(value).endswith("W"):
+            strvalue = str(value).removesuffix("W")
+            numvalue = locale.atof(strvalue)
+        elif str(value).endswith("°C"):
+            strvalue = str(value).removesuffix("°C")
+            numvalue = locale.atof(strvalue)
+
+        if numvalue is not None:
+            if 'maxValue' in self.regionConfig:
+                while numvalue > self.regionConfig['maxValue']:
+                    numvalue /= 10
+
+            # Fix wrong decimal point
+            if self.decpt is not None:
+                strvalue = str(numvalue).replace(self.decpt, self.real_decpt)
+            else:
+                strvalue = str(numvalue)
+
+        if self.DEBUG_OUTPUT:
+            print(f"... cleaned value for {key} = '{strvalue}'")
+
+        # reset the locale
+        locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
+
+        return strvalue
+    # end clean_num_value()
+
     def process_numeric_values(self) -> dict:
         # Return data set
         data = {}
@@ -264,43 +312,75 @@ class MiraRegion:
                 else:
                     continue
 
+            if self.DEBUG_OUTPUT:
+                if len(text) > 1:
+                    print(f"... retrieved text after splitting: '{current_text}'")
+
+            # Strip text from leading and trailing spaces
+            current_text = current_text.strip()
+
             # Extract values (temperature or power)
-            match_temp = re.search(r"(\d{1,2},\d)\s*°C", current_text)
+            match_temp = re.search(r"(\d{1,2},?\d)\s*°C", current_text)
             match_energy = re.search(r"(\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", current_text)
-            match_power = re.search(r"(\d+[.,]?\d*)\s*(kW|W|kw|KW)", current_text)
+            match_power = re.search(r"(\d+[.,]?\d*)\s*(kW|W|kw|KW|kKW)", current_text)
 
             if match_temp:
                 # Fix wrong decimal point
                 if self.decpt is not None:
-                    value = match_temp.group(1).replace(self.decpt, self.real_decpt)
+                    strvalue = match_temp.group(1).replace(self.decpt, self.real_decpt)
                 else:
-                    value = match_temp.group(1)
-                data[current_key] = value + " °C"
-            elif match_energy:
+                    strvalue = match_temp.group(1)
+
+                # Get corrected numeric value
+                value = self.clean_num_value(current_key, strvalue + "°C")
+
                 # Fix wrong decimal point
                 if self.decpt is not None:
-                    value = match_energy.group(1).replace(self.decpt, self.real_decpt)
-                else:
-                    value = match_energy.group(1)
+                    value = value.replace(self.decpt, self.real_decpt)
+
+                data[current_key] = value
+            elif match_energy:
                 # Correct uper/lower case errors in unit
                 unit = (match_energy.group(2)).replace("w", "W")
                 unit = unit.replace("KW", "kW")
                 unit = unit.replace("kw", "kW")
                 unit = unit.replace("mw", "MW")
                 unit = unit.replace("Mw", "MW")
-                data[current_key] = value + " " + unit
-            elif match_power:
+
                 # Fix wrong decimal point
                 if self.decpt is not None:
-                    value = match_power.group(1).replace(self.decpt, self.real_decpt)
+                    strvalue = match_energy.group(1).replace(self.decpt, self.real_decpt)
                 else:
-                    value = match_power.group(1)
+                    strvalue = match_energy.group(1)
+
+                # Get corrected numeric value
+                value = self.clean_num_value(current_key, strvalue + unit)
+
+                # Fix wrong decimal point
+                if self.decpt is not None:
+                    value = value.replace(self.decpt, self.real_decpt)
+
+                data[current_key] = value
+            elif match_power:
                 # Correct uper/lower case errors in unit
                 unit = (match_power.group(2)).replace("w", "W")
                 unit = unit.replace("KW", "kW")
                 unit = unit.replace("kw", "kW")
-                data[current_key] = value + " " + unit
+                unit = unit.replace("kKW", "kW")
+
+                # Fix wrong decimal point
+                if self.decpt is not None:
+                    strvalue = match_power.group(1).replace(self.decpt, self.real_decpt)
+                else:
+                    strvalue = match_power.group(1)
+
+                # Get corrected numeric value
+                value = self.clean_num_value(current_key, strvalue + unit)
+
+                data[current_key] = value
             else:
+                if self.DEBUG_OUTPUT:
+                    print(f"... retrieved text: '{current_text}'")
                 #data[current_key] = "N/A"
                 data[current_key] = current_text
 

@@ -145,36 +145,6 @@ class MiraDataCollector:
         # Set locale for parsing localized values
         locale.setlocale(locale.LC_ALL, self.config['locale'])
 
-        # Cleanup and parse numeric data before publishing
-        for key, value in data.items():
-            if str(value).endswith(" kWh"):
-                value = str(value).removesuffix(" kWh")
-                numvalue = locale.atof(value)
-                data[key] = str(numvalue)
-            elif str(value).endswith(" MWh"):
-                value = str(value).removesuffix(" MWh")
-                numvalue = locale.atof(value)
-                numvalue *= 1000
-                data[key] = str(numvalue)
-            elif str(value).endswith(" kW"):
-                value = str(value).removesuffix(" kW")
-                numvalue = locale.atof(value)
-                numvalue *= 1000
-                data[key] = str(numvalue)
-            elif str(value).endswith(" W"):
-                value = str(value).removesuffix(" W")
-                numvalue = locale.atof(value)
-                data[key] = str(numvalue)
-            elif str(value).endswith(" °C"):
-                value = str(value).removesuffix(" °C")
-                numvalue = locale.atof(value)
-                data[key] = str(numvalue)
-            else:
-                numvalue = str(value)
-
-            if self.DEBUG_OUTPUT and numvalue is not None:
-                print (f"Cleaned value for {key} = '{numvalue}'")
-
         # Publish data
         self.mqtt_publish(self.config['mqttTopicPrefix'] + self.config['mqttInfoTopic'],
                           json.dumps(self.data))
@@ -341,7 +311,8 @@ class MiraPage(MiraDataCollector):
 
             decpt = region_config['decpt'] if 'decpt' in region_config else None
 
-            region: MiraRegion = MiraRegion(key,
+            region: MiraRegion = MiraRegion(region_config,
+                                            key,
                                             secondarykey,
                                             image,
                                             region_config['coordinates'],

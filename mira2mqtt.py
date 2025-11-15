@@ -85,7 +85,11 @@ CONFIG = {
                     #   thresh -> adaptive thresholding
                     'preProcessing': 'contrast+invert+denoise',
                     # tesseract OCR configuration to enhance data retrieval
-                    'ocrConfig': '--oem 3 --psm 6' },
+                    'ocrConfig': '--oem 3 --psm 6' ,
+                    # optional maximum value, which when exceeding lead to the value
+                    # being corrected by shifting the decimal point
+                    'maxValue': 50,
+                },
                 'NetworkPower': {
                     'coordinates': (10, 250, 110, 290),
                     'preProcessing': 'contrast+invert+denoise+thresh',
