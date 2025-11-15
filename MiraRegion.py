@@ -33,6 +33,7 @@ class MiraRegion:
     language = None
     numlocale = None
     real_decpt = None
+    real_thpt = None
     decpt = None
     img_prefix = None
     regionConfig = None
@@ -60,6 +61,13 @@ class MiraRegion:
         :param ocrconfig: tesseract configuration (OCR)
         :param language: OCR language
         """
+
+        if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
+            self.DEBUG_OUTPUT = True
+
+        if "DEBUG_IMAGE_WRITING" in os.environ and os.environ["DEBUG_IMAGE_WRITING"] == "1":
+            self.DEBUG_IMAGE_WRITING = True
+
         # Crop and grey scale image from given coordinates
         self.regionConfig = region_config
         self.key = key
@@ -75,14 +83,8 @@ class MiraRegion:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         self.img_prefix = f'processed-{key}-{timestamp}-'
 
-        # Get correct decimal point in case of parsing errors
-        self.real_decpt = self.get_decimal_separator()
-
-        if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
-            self.DEBUG_OUTPUT = True
-
-        if "DEBUG_IMAGE_WRITING" in os.environ and os.environ["DEBUG_IMAGE_WRITING"] == "1":
-            self.DEBUG_IMAGE_WRITING = True
+        # Set correct decimal point and thousands separators in case of parsing errors
+        self.set_numeric_separators()
 
     def set_debug_delete_image_after_success(self, flag: bool) -> None:
         self.DebugDeleteImageAfterSuccess = flag
@@ -217,7 +219,7 @@ class MiraRegion:
         return self.retrieve_text().strip()
     # end process_and_retrieve()
 
-    def get_decimal_separator(self) -> chr:
+    def set_numeric_separators(self) -> None:
         """
             Sets the locale and returns the decimal point character.
         """
@@ -229,9 +231,11 @@ class MiraRegion:
             settings = locale.localeconv()
 
             # Extract the decimal point character
-            decimal_char = settings['decimal_point']
+            self.real_decpt = settings['decimal_point']
+            self.real_thpt = settings['thousands_sep']
 
-            return decimal_char
+            #if self.DEBUG_OUTPUT:
+            #    print(f"... decimal point = {self.real_decpt} - thousands seperator = {self.real_thpt}")
 
         except locale.Error as e:
             print(f"Error setting locale to {self.numlocale}: {e}")
@@ -240,7 +244,22 @@ class MiraRegion:
             # reset the locale
             locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
             pass
-    # end get_decimal_separator()
+    # end set_numeric_separators()
+
+    def clean_numeric_separators(self, value: str) -> str:
+        ret_value = value
+
+        if self.decpt is not None:
+            # Change decimal point
+            ret_value = value.replace(self.decpt, self.real_decpt)
+
+        # Remove thousands separator
+        ret_value = ret_value.replace(self.real_thpt, '')
+
+        if self.DEBUG_OUTPUT:
+            print(f"... value after numeric separators cleansing:'{value}' ->  {ret_value}")
+
+        return ret_value
 
     def clean_num_value(self, key: str, value: str) -> str:
         # Set locale for parsing localized values
@@ -251,38 +270,38 @@ class MiraRegion:
         numvalue = None
         if str(value).endswith("kWh"):
             strvalue = str(value).removesuffix("kWh")
+            strvalue = self.clean_numeric_separators(strvalue)
             numvalue = locale.atof(strvalue)
         elif str(value).endswith("MWh"):
             strvalue = str(value).removesuffix("MWh")
+            strvalue = self.clean_numeric_separators(strvalue)
             numvalue = locale.atof(strvalue)
             numvalue *= 1000
         elif str(value).endswith("kW"):
             strvalue = str(value).removesuffix("kW")
+            strvalue = self.clean_numeric_separators(strvalue)
             numvalue = locale.atof(strvalue)
             numvalue *= 1000
         elif str(value).endswith("W"):
             strvalue = str(value).removesuffix("W")
+            strvalue = self.clean_numeric_separators(strvalue)
             numvalue = locale.atof(strvalue)
         elif str(value).endswith("°C"):
             strvalue = str(value).removesuffix("°C")
+            strvalue = self.clean_numeric_separators(strvalue)
             numvalue = locale.atof(strvalue)
+
+        # reset the locale
+        locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
 
         if numvalue is not None:
             if 'maxValue' in self.regionConfig:
                 while numvalue > self.regionConfig['maxValue']:
                     numvalue /= 10
-
-            # Fix wrong decimal point
-            if self.decpt is not None:
-                strvalue = str(numvalue).replace(self.decpt, self.real_decpt)
-            else:
-                strvalue = str(numvalue)
+            strvalue = str(numvalue)
 
         if self.DEBUG_OUTPUT:
             print(f"... cleaned value for {key} = '{strvalue}'")
-
-        # reset the locale
-        locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
 
         return strvalue
     # end clean_num_value()
@@ -325,19 +344,7 @@ class MiraRegion:
             match_power = re.search(r"(\d+[.,]?\d*)\s*(kW|W|kw|KW|kKW)", current_text)
 
             if match_temp:
-                # Fix wrong decimal point
-                if self.decpt is not None:
-                    strvalue = match_temp.group(1).replace(self.decpt, self.real_decpt)
-                else:
-                    strvalue = match_temp.group(1)
-
-                # Get corrected numeric value
-                value = self.clean_num_value(current_key, strvalue + "°C")
-
-                # Fix wrong decimal point
-                if self.decpt is not None:
-                    value = value.replace(self.decpt, self.real_decpt)
-
+                value = self.clean_num_value(current_key, match_temp.group(1) + "°C")
                 data[current_key] = value
             elif match_energy:
                 # Correct uper/lower case errors in unit
@@ -347,18 +354,8 @@ class MiraRegion:
                 unit = unit.replace("mw", "MW")
                 unit = unit.replace("Mw", "MW")
 
-                # Fix wrong decimal point
-                if self.decpt is not None:
-                    strvalue = match_energy.group(1).replace(self.decpt, self.real_decpt)
-                else:
-                    strvalue = match_energy.group(1)
-
                 # Get corrected numeric value
-                value = self.clean_num_value(current_key, strvalue + unit)
-
-                # Fix wrong decimal point
-                if self.decpt is not None:
-                    value = value.replace(self.decpt, self.real_decpt)
+                value = self.clean_num_value(current_key, match_energy.group(1) + unit)
 
                 data[current_key] = value
             elif match_power:
@@ -368,14 +365,8 @@ class MiraRegion:
                 unit = unit.replace("kw", "kW")
                 unit = unit.replace("kKW", "kW")
 
-                # Fix wrong decimal point
-                if self.decpt is not None:
-                    strvalue = match_power.group(1).replace(self.decpt, self.real_decpt)
-                else:
-                    strvalue = match_power.group(1)
-
                 # Get corrected numeric value
-                value = self.clean_num_value(current_key, strvalue + unit)
+                value = self.clean_num_value(current_key, match_power.group(1) + unit)
 
                 data[current_key] = value
             else:
