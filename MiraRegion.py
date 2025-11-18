@@ -16,6 +16,7 @@ import re
 import cv2
 import numpy as np
 import pytesseract
+import json
 
 class MiraRegion:
     """
@@ -28,7 +29,7 @@ class MiraRegion:
     key: str = None
     img: cv2 = None
     language = None
-    numlocale = None
+    ui_locale = None
     real_decpt = None
     real_thpt = None
     decpt = None
@@ -42,14 +43,14 @@ class MiraRegion:
                  region_config: dict,
                  img: 'cv2',
                  language: str,
-                 numlocale: str):
+                 ui_locale: str):
         """
         Constructor of a MiraRegion.
         :param key: Region key (unique identifier)
         :param region_config: Region confg
         :param img: Mira UI screenshot
         :param language: OCR language
-        :param numlocale: Locale for numbers
+        :param ui_locale: Locale for numbers shown in UI
         """
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
@@ -64,7 +65,7 @@ class MiraRegion:
         self.img = cv2.cvtColor(np.array(img.crop(region_config['coordinates'])),
                                 cv2.COLOR_BGR2GRAY)
         self.language = language
-        self.numlocale = numlocale
+        self.ui_locale = ui_locale
         self.decpt = region_config['decpt'] if 'decpt' in region_config else None
 
         #cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
@@ -170,8 +171,10 @@ class MiraRegion:
         Retrieve text from region image.
         :return: retrieved text
         """
+        ocr_language = self.regionConfig['ocrLanguage'] if 'ocrLanguage' in self.regionConfig else self.language
+
         return pytesseract.image_to_string(self.img,
-                                           lang=self.language,
+                                           lang=ocr_language,
                                            config=self.regionConfig['ocrConfig'])
 
     def process_and_retrieve(self) -> str:
@@ -214,7 +217,7 @@ class MiraRegion:
         """
         try:
             # Set the locale for numeric formatting
-            locale.setlocale(locale.LC_NUMERIC, self.numlocale)
+            locale.setlocale(locale.LC_NUMERIC, self.ui_locale)
 
             # Get the locale conventions
             settings = locale.localeconv()
@@ -227,7 +230,7 @@ class MiraRegion:
             #    print(f"... decimal point = {self.real_decpt} - thousands seperator = {self.real_thpt}")
 
         except locale.Error as e:
-            print(f"Error setting locale to {self.numlocale}: {e}")
+            print(f"Error setting locale to {self.ui_locale}: {e}")
             return None
         finally:
             # reset the locale
@@ -247,47 +250,68 @@ class MiraRegion:
 
         return ret_value
 
-    def clean_num_value(self, key: str, value: str) -> str:
+    def get_numeric_value(self, strvalue: str) -> float:
         # Set locale for parsing localized values
-        locale.setlocale(locale.LC_ALL, self.numlocale)
+        locale.setlocale(locale.LC_ALL, self.ui_locale)
 
+        strvalue = self.clean_numeric_separators(strvalue)
+        numvalue: float
+
+        try:
+            numvalue = locale.atof(strvalue)
+        except ValueError:
+            print(f"... ERROR: could not get numeric value for {strvalue}")
+            numvalue: float = 0.0
+        finally:
+            # reset the locale
+            locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
+
+        return numvalue
+    # end get_only_numeric_value()
+
+    def clean_num_value(self, key: str, value: str) -> str:
         # Cleanup and parse numeric data before publishing
-        strvalue = value
+        strvalue = value.strip()
         numvalue = None
-        if str(value).endswith("kWh"):
-            strvalue = str(value).removesuffix("kWh")
-            strvalue = self.clean_numeric_separators(strvalue)
-            numvalue = locale.atof(strvalue)
-        elif str(value).endswith("MWh"):
-            strvalue = str(value).removesuffix("MWh")
-            strvalue = self.clean_numeric_separators(strvalue)
-            numvalue = locale.atof(strvalue)
+        if str(strvalue).endswith("kWh"):
+            strvalue = str(strvalue).removesuffix("kWh")
+            numvalue = self.get_numeric_value(strvalue)
+        elif str(strvalue).endswith("MWh"):
+            strvalue = str(strvalue).removesuffix("MWh")
+            numvalue = self.get_numeric_value(strvalue)
             numvalue *= 1000
-        elif str(value).endswith("kW"):
-            strvalue = str(value).removesuffix("kW")
-            strvalue = self.clean_numeric_separators(strvalue)
-            numvalue = locale.atof(strvalue)
+        elif str(strvalue).endswith("kW"):
+            strvalue = str(strvalue).removesuffix("kW")
+            numvalue = self.get_numeric_value(strvalue)
             numvalue *= 1000
-        elif str(value).endswith("W"):
-            strvalue = str(value).removesuffix("W")
-            strvalue = self.clean_numeric_separators(strvalue)
-            numvalue = locale.atof(strvalue)
-        elif str(value).endswith("°C"):
-            strvalue = str(value).removesuffix("°C")
-            strvalue = self.clean_numeric_separators(strvalue)
-            numvalue = locale.atof(strvalue)
-
-        # reset the locale
-        locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
+        elif str(strvalue).endswith("W"):
+            strvalue = str(strvalue).removesuffix("W")
+            numvalue = self.get_numeric_value(strvalue)
+        elif str(strvalue).endswith("°C"):
+            strvalue = str(strvalue).removesuffix("°C")
+            numvalue = self.get_numeric_value(strvalue)
 
         if numvalue is not None:
             if 'maxValue' in self.regionConfig:
                 while numvalue > self.regionConfig['maxValue']:
                     numvalue /= 10
+
+            if 'mandatoryDecimalPlaces' in self.regionConfig:
+                check_string = str(numvalue)
+                decimals = check_string.split('.')
+
+                # We don't have decimals after the dot
+                if len(decimals) <= 1:
+                    print('... number needed decimal fixing')
+                    numvalue /= pow(10, self.regionConfig['mandatoryDecimalPlaces'])
+
             strvalue = str(numvalue)
 
-        if self.DEBUG_OUTPUT:
-            print(f"... cleaned value for {key} = '{strvalue}'")
+            if self.DEBUG_OUTPUT:
+                print(f"... cleaned numeric value for {key} = '{strvalue}'")
+        else:
+            if self.DEBUG_OUTPUT:
+                print(f"... cleaned string value for {key}  = '{strvalue}'")
 
         return strvalue
     # end clean_num_value()
@@ -298,9 +322,9 @@ class MiraRegion:
 
         # Do we have a secondary key?
         if 'secondaryKey' in self.regionConfig:
-            secondaryKey = self.regionConfig['secondaryKey']
+            secondary_key = self.regionConfig['secondaryKey']
         else:
-            secondaryKey = None
+            secondary_key = None
 
         # Retrieve text from region
         text = self.process_and_retrieve()
@@ -316,11 +340,20 @@ class MiraRegion:
         # Process the text parts
         i=0
         for current_text in texts:
+            # Get key for current value
             current_key = self.key
             if i > 0:
-                if secondaryKey is None:
+                if secondary_key is None:
                     continue
-                current_key = secondaryKey
+                current_key = secondary_key
+
+            # Get unit of current value - if present
+            defined_unit = None
+            if 'unit' in self.regionConfig:
+                if isinstance(self.regionConfig['unit'], list):
+                    defined_unit = self.regionConfig['unit'][i]
+                else:
+                    defined_unit = self.regionConfig['unit']
 
             if self.DEBUG_OUTPUT:
                 if len(text) > 1:
@@ -329,26 +362,32 @@ class MiraRegion:
             # Strip text from leading and trailing spaces
             current_text = current_text.strip()
 
+            # Workaround for zero values
+            if current_text.upper() == '0WW' or current_text.upper() == '0W':
+                current_text = '0W'
+
             # Extract values (temperature or power)
-            match_temp = re.search(r"(\d{1,2},?\d)\s*°C", current_text)
-            match_energy = re.search(r"(\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", current_text)
-            match_power = re.search(r"(\d+[.,]?\d*)\s*(kW|W|kw|KW|kKW)", current_text)
+            match_temp = re.search(r"(-?\d{1,2},?\d)\s*°C", current_text)
+            match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", current_text)
+            match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", current_text)
 
             if match_temp:
                 value = self.clean_num_value(current_key, match_temp.group(1) + "°C")
                 data[current_key] = value
+                print(f"... Detected temperature: {value}")
             elif match_energy:
                 # Correct uper/lower case errors in unit
                 unit = (match_energy.group(2)).replace("w", "W")
+                unit = unit.replace("H", "h")
                 unit = unit.replace("KW", "kW")
-                unit = unit.replace("kw", "kW")
-                unit = unit.replace("mw", "MW")
-                unit = unit.replace("Mw", "MW")
+                unit = unit.replace("mW", "MW")
 
                 # Get corrected numeric value
                 value = self.clean_num_value(current_key, match_energy.group(1) + unit)
 
                 data[current_key] = value
+
+                print(f"... Detected energy: {value}")
             elif match_power:
                 # Correct uper/lower case errors in unit
                 unit = (match_power.group(2)).replace("w", "W")
@@ -360,16 +399,24 @@ class MiraRegion:
                 value = self.clean_num_value(current_key, match_power.group(1) + unit)
 
                 data[current_key] = value
+
+                print(f"... Detected power: {value}")
             else:
                 if self.DEBUG_OUTPUT:
                     print(f"... retrieved text: '{current_text}'")
-                #data[current_key] = "N/A"
-                data[current_key] = current_text
+
+                if defined_unit is not None and defined_unit != 'None':
+                    data[current_key] = ''
+                    print(f"... Skipping text value '{current_text}' for value of unit {defined_unit}!")
+                else:
+                    #data[current_key] = "N/A"
+                    data[current_key] = current_text
+                    print(f"... Detected text: {current_text}")
 
             i += 1
 
         if self.DebugDeleteImageAfterSuccess:
-            if self.key in data or secondaryKey in data:
+            if self.key in data or secondary_key in data:
                 for f in glob.glob(f"{self.img_prefix}*.png"):
                     try:
                         os.remove(f)
@@ -378,3 +425,60 @@ class MiraRegion:
 
         return data
     # end processNumericValues()
+
+    def get_auto_discovery_data(self) -> list:
+        data = []
+        keys = [self.key]
+
+        # Do we have a secondary key?
+        if 'secondaryKey' in self.regionConfig:
+            keys.append(self.regionConfig['secondaryKey'])
+
+        i=0
+        for k in keys:
+            # Get defaults
+            if 'deviceClass' in self.regionConfig:
+                if isinstance(self.regionConfig['deviceClass'], list):
+                    device_class = self.regionConfig['deviceClass'][i]
+                else:
+                    device_class = self.regionConfig['deviceClass']
+            else:
+                device_class = 'None'
+
+            if 'stateClass' in self.regionConfig:
+                if isinstance(self.regionConfig['stateClass'], list):
+                    state_class = self.regionConfig['stateClass'][i]
+                else:
+                    state_class = self.regionConfig['stateClass']
+            else:
+                state_class = 'measurement'
+
+            if 'unit' in self.regionConfig:
+                if isinstance(self.regionConfig['unit'], list):
+                    unit = self.regionConfig['unit'][i]
+                else:
+                    unit = self.regionConfig['unit']
+            else:
+                unit = 'None'
+
+            if 'valueTemplate' in self.regionConfig:
+                if isinstance(self.regionConfig['valueTemplate'], list):
+                    value_template = self.regionConfig['valueTemplate'][i]
+                else:
+                    value_template = self.regionConfig['valueTemplate']
+            else:
+                value_template = 'None'
+
+            data.append({'uniq_id': k,
+                         'name': k,
+                         'dev_cla': device_class,
+                         'state_class': state_class,
+                         'unit_of_meas': unit,
+                         'val_tpl': value_template}
+                        )
+
+            # Increment counter
+            i += 1
+
+        return data
+    # end get_auto_discovery_data()

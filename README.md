@@ -1,9 +1,15 @@
 # Mira2mqtt
 Monitor Ovum heatpumps with Mira firmware via VNC.
 
-Currently Ovum doesn not provide an official API to connect to their heat pumps running the new Mira firmware.
+Currently Ovum does not provide an official API to connect to their heat pumps running the new Mira firmware.
 This software attempts to circumvent this by connecting to the VNC port provided by Mira and retrieving data via OCR (optical character recognition).
 The retrieved data is then sent to a MQTT broker, where it can be further processed, e.g., by a home automation solution such as OpenHAB, Home Assistant, and others.
+
+The standard configuration is set to only retrieve. 
+
+In theory, controlling the heatpump is possible as well, as long as the setting you want to change is accessible via the Mira UI.  
+The configuration allows you to specify how certain areas of the user interface should be accessed and which coordinates should be clicked on.
+In this case, however, you are on your own. I will not provide any assistance in this regard.
 
 ## Installation
 ### Install required packages (Debian or Ubuntu)

@@ -33,6 +33,7 @@ class MiraDataCollector:
     config: dict = None
     timestamp: datetime = None
     data: dict = None
+    auto_discovery: list = None
     screenshot_path: str = None
     mqtt_client: mqtt = None
     mqtt_connection_etablished = False
@@ -55,6 +56,8 @@ class MiraDataCollector:
         # Init data
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         self.data = {'timestamp': self.timestamp}
+        self.auto_discovery: list = []
+        self.config['autoDiscoveryTemplate']['stat_t'] = self.config['mqttStatusTopic']
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
             self.DEBUG_OUTPUT = True
@@ -75,21 +78,18 @@ class MiraDataCollector:
         :param exc_tb:
         :return:
         """
+        # Disconect from VNC
         if self.vncclient is not None:
             self.vnc_disconnect()
+
+        # Disconnect from MQTT broker
+        self.mqtt_client.disconnect()
+        self.mqtt_client.loop_stop()
     # end __exit__()
 
     def connect_mqtt(self) -> None:
         if 'mqttUsage' in self.config and not self.config['mqttUsage']:
             return
-        #def on_connect(client, userdata, flags, rc):
-        #    # For paho-mqtt 2.0.0, you need to add the properties parameter.
-        #    # def on_connect(client, userdata, flags, rc, properties):
-        #    if rc == 0:
-        #        self.mqtt_connection_etablished = True
-        #        print("Connected to MQTT Broker!")
-        #    else:
-        #        print("Failed to connect, return code %d\n", rc)
 
         print("Connect to MQTT Broker...")
         self.unacked_publish = set()
@@ -125,28 +125,47 @@ class MiraDataCollector:
         logging.info("Reconnect failed after %s attempts. Exiting...", reconnect_count)
     # end on_disconnect()
 
-    def mqtt_publish(self, topic: str, message: str):
+    def mqtt_publish(self, topic: str, message: str, retain: bool = False):
         if 'mqttUsage' in self.config and not self.config['mqttUsage']:
             return
 
         # Publish message
-        msg_info = self.mqtt_client.publish(topic, message)
+        if retain:
+            msg_info = self.mqtt_client.publish(topic, message, qos=0, retain=True)
+        else:
+            msg_info = self.mqtt_client.publish(topic, message)
         self.unacked_publish.add(msg_info.mid)
         msg_info.wait_for_publish()
-
-        # Disconnect from broker
-        self.mqtt_client.disconnect()
-        self.mqtt_client.loop_stop()
     # end mqtt_publish()
 
     def publish_data(self):
-        data = self.data
-
         # Set locale for parsing localized values
         locale.setlocale(locale.LC_ALL, self.config['locale'])
 
+        # Publish auto discovery message
+        if self.config['mqttAutoDiscovery']:
+            if self.DEBUG_OUTPUT:
+                print("Number of auto discovery mesages: %i" % len(self.auto_discovery))
+            for i in range(len(self.auto_discovery)):
+                if self.DEBUG_OUTPUT:
+                    print("-------- AUTO DISCOVERY COMPONENT --------")
+                    print(json.dumps(self.auto_discovery[i]))
+
+                topic: str = self.config['mqttAutoDiscoveryTopic']
+                unique_id: str = self.auto_discovery[i]['uniq_id']
+                topic = topic.replace('%s', unique_id)
+                if self.DEBUG_OUTPUT:
+                    print(f"Setting unique id '{unique_id}' to topic name -> '{topic}'")
+
+                # Publish auto discover message
+                self.mqtt_publish(topic,
+                                  json.dumps(self.auto_discovery[i]),
+                                  True)
+            if self.DEBUG_OUTPUT:
+                print("------------------------------------------")
+
         # Publish data
-        self.mqtt_publish(self.config['mqttTopicPrefix'] + self.config['mqttInfoTopic'],
+        self.mqtt_publish(self.config['mqttStatusTopic'],
                           json.dumps(self.data))
     # end publish_data()
 
@@ -177,17 +196,18 @@ class MiraDataCollector:
             if page_config['MouseMovesAndClicks'] is not None:
                 mandatory_found = mira_page.do_mouse_moves_and_click(page_config['MouseMovesAndClicks'])
                 if not mandatory_found:
+                    if self.DEBUG_OUTPUT:
+                        print(f"Mandatory text '{page_config['MandatoryText']}' not found on {page}!")
                     continue
 
-            # Skip further processing unless mandatory text was found
             mira_page.take_screenshot()
-            if ('MandatoryText' in page_config
-                    and not mira_page.check_mandatory_content(page_config['MandatoryText'])):
-                continue
-
             mira_page.process_regions()
             mira_page.delete_screenshot()
             self.data.update(mira_page.data)
+
+            # Assemble auto discovery messages
+            for ad_message in mira_page.auto_discovery:
+                self.auto_discovery.append(ad_message)
 
         print("\nExtracted values:")
         for k, v in self.data.items():
@@ -219,6 +239,7 @@ class MiraPage(MiraDataCollector):
         self.vncclient = mira.vncclient
         self.config = mira.config
         self.name = name
+        self.auto_discovery = []
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
             self.DEBUG_OUTPUT = True
@@ -276,18 +297,19 @@ class MiraPage(MiraDataCollector):
             self.vncclient.mousePress(1)
             time.sleep(2)
 
+            self.take_screenshot()
+
             if 'MandatoryText' not in m or m['MandatoryText'] is None:
                 return True
 
             # Check if mandatory text exists
-            self.take_screenshot()
-
             mandatory_found = self.check_mandatory_content(m['MandatoryText'])
 
             # Delete screenshot
             self.delete_screenshot()
 
             if not mandatory_found:
+                print("Mandatory text [%s] not found in page!" % m['MandatoryText'] )
                 return False
         return True
     # end do_mouse_moves_and_click()
@@ -316,3 +338,10 @@ class MiraPage(MiraDataCollector):
                 region.set_debug_delete_image_after_success(True)
 
             self.data.update(region.process_numeric_values())
+
+            # Append auto discovery message for every key in curent region
+            if self.config['mqttAutoDiscovery']:
+                for dm_part in region.get_auto_discovery_data():
+                    discovery_message: dict = self.config['autoDiscoveryTemplate'].copy()
+                    discovery_message.update(dm_part)
+                    self.auto_discovery.append(discovery_message)

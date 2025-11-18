@@ -31,6 +31,9 @@ CONFIG = {
     'OCRLanguage': 'deu',
     'locale': 'de_DE.UTF-8',
 
+    # Path to the tesseract binary
+    'TesseractPath': '/usr/bin/tesseract',
+
     # MQTT configuration
     'mqttUsage': False,
     'mqttBroker': 'localhost',
@@ -38,12 +41,21 @@ CONFIG = {
     'mqttClientId': 'MiraDataCollector',
     'mqttUser': 'mira',
     'mqttPassword': 'pleasechangeme',
-    'mqttTopicPrefix': 'ovum/',
-    'mqttStatusTopic': 'status',
-    'mqttInfoTopic': 'info',
+    'mqttStatusTopic': 'mira/OVUM-AC312P/state',
 
-    # Path to the tesseract binary
-    'TesseractPath': '/usr/bin/tesseract',
+    # MQTT auto discovery - experimental
+    'mqttAutoDiscovery': False,
+    'mqttAutoDiscoveryTopic': 'homeassistant/climate/OVUM-AC312P-%s/config',
+    # Template used for auto discovery messages
+    'autoDiscoveryTemplate': {
+        'device': {
+            'ids': ['OVUM-AC312P'],
+            'mf': 'Ovum',
+            'mdl': 'AC312P',
+            'name': 'Ovum AC312P',
+            'via_device': 'mira2mqtt',
+        },
+    },
 
     # For debugging, you can set to True to inspect screenshots
     'DebugKeepScreenshots': False,
@@ -83,79 +95,162 @@ CONFIG = {
                     #   invert
                     #   denoise
                     #   thresh -> adaptive thresholding
-                    'preProcessing': 'contrast+invert+denoise',
+                    'preProcessing': 'contrast',
                     # tesseract OCR configuration to enhance data retrieval
                     'ocrConfig': '--oem 3 --psm 6' ,
-                    # optional maximum value, which when exceeding lead to the value
-                    # being corrected by shifting the decimal point
-                    'maxValue': 50,
+                    # optional check for decimal places (sometimes the OCR looses th decimal
+                    # point) -> value gets corrected by shifting the decimal point
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': ['{{ value_json.OutdoorTemp }}', '{{ value_json.OutdoorTempCurrent }}'],
                 },
                 'NetworkPower': {
                     'coordinates': (10, 250, 110, 290),
-                    'preProcessing': 'contrast+invert+denoise+thresh',
-                    'ocrConfig': '--oem 3 --psm 6'},
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.NetworkPower }}',
+                },
                 'NetworkPower2': {
                     'coordinates': (250, 502, 350, 522),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6'},
-                'Environment': {
+                    'preProcessing': 'contrast',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.NetworkPower2 | float | round(1) }}',
+                },
+                'EnvironmentPower': {
                     'coordinates': (490, 260, 590, 290),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': ''},
-                'HeatPump': {
+                    'ocrConfig': '',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.EnvironmentPower | float | round(1) }}',
+                },
+                'HeatingPower': {
                     'coordinates': (240, 523, 360, 550),
-                    'preProcessing': 'contrast+invert+denoise+thresh',
-                    'ocrConfig': '--oem 3 --psm 6'},
-                'HeatingActual': {
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.HeatingPower | float | round(1) }}',
+                },
+                'HeatingTemp': {
                     'coordinates': (154, 704, 248, 732),
                     'preProcessing': 'gray',
-                    'ocrConfig': ''},
-                'HeatingTarget': {
-                    'coordinates': (60, 730, 558, 762),
-                    'preProcessing': 'contrast+invert+denoise',
-                    'ocrConfig': '--oem 3 --psm 6' },
-                'HotWaterActual': {
+                    'ocrConfig': '',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.HeatingTemp }}',
+                },
+                'HeatingMode': {
+                    'coordinates': (60, 728, 558, 758),
+                    'secondaryKey': 'HeatingTargetTemp',
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': ['None', 'temperature'],
+                    'unit': ['None', '°C'],
+                    'valueTemplate': ['{{ value_json.HeatingMode }}',
+                                      '{{ value_json.HeatingTargetTemp | float | round(1) }}'],
+                },
+                'HotWaterTemp': {
                     'coordinates': (205, 770, 305, 808),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': ''},
+                    'ocrConfig': '',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.HotWaterTemp }}',
+                },
                 'HotWaterMode': {
                     'coordinates': (60, 806, 558, 835),
-                    'secondaryKey': 'HotWaterTarget',
+                    'secondaryKey': 'HotWaterTargetTemp',
                     'preProcessing': 'contrast+invert+denoise+thresh',
-                    'ocrConfig': '--oem 3 --psm 6'},
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': ['None', 'temperature'],
+                    'unit': ['None', '°C'],
+                    'valueTemplate': ['{{ value_json.HotWaterMode }}',
+                                      '{{ value_json.HotWaterTargetTemp | float | round(1) }}'],
+                },
             }
         },
         'Statistics': {
             # In order to retrieve the data we need, it is sometimes
             # necessary to perform a long sequence of mouse clicks.
-            # Here we want to access the daily statistics, and we want
-            # the power consumption to take defrosting into account.
             'MouseMovesAndClicks': [
-                {'moveTo': [450,960],
-                 'MandatoryText': ['Wärmepumpe','Heizen','Warmwasser','Statistik']},
+                {'moveTo': [450, 960],
+                 'MandatoryText': ['Wärmepumpe', 'Heizen', 'Warmwasser', 'Statistik']},
                 {'moveTo': [230, 410],
-                 'MandatoryText': ['Wärmeautarkie','Wärmepumpe','Energiebilanz']},
+                 'MandatoryText': ['Wärmeautarkie', 'Wärmepumpe', 'Energiebilanz']},
+            ],
+            'Regions': {
+                'HeatingEnergy': {
+                    # Now, this a little bit tricky:
+                    # If there was no hot water production on a day, the heating energy production
+                    # is shown where normally the hot water energy production is shown.
+                    # Otherwise, the heating energy is shown above the hot water energy.
+                    'coordinates': (66, 836, 160, 900),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'decpt': '.',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'energy',
+                    'unit': 'kWh',
+                    'valueTemplate': '{{ value_json.HeatingEnergy | float | round (1) }}',
+                },
+                'HotWaterEnergy': {
+                    'coordinates': (66, 870, 160, 900),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'maxValue': 50,
+                    'decpt': '.',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'energy',
+                    'unit': 'kWh',
+                    'valueTemplate': '{{ value_json.HotWaterEnergy | float | round (1) }}',
+                },
+                'NetworkEnergy': {
+                    'coordinates': (310, 836, 400, 900),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'decpt': '.',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'energy',
+                    'unit': 'kWh',
+                    'valueTemplate': '{{ value_json.NetworkEnergy | float | round (1) }}',
+                }
+            }
+        },
+        'StatisticsWithDefrosting': {
+            # Now we want the daily statistics to show the power
+            # consumption to take defrosting into account.
+            'MouseMovesAndClicks': [
                 {'moveTo': [540, 210],
                  'MandatoryText': ['Abtauen']},
                 {'moveTo': [335, 345]},
                 {'moveTo': [335, 400]}
             ],
             'Regions': {
-                'HeatingEnergy': {
-                    'coordinates': (66, 836, 160, 866),
+                'NetworkEnergyWithDefrosting': {
+                    'coordinates': (310, 836, 400, 900),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
-                    'decpt': '.'},
-                'HotWaterEnergy': {
-                    'coordinates': (66, 870, 160, 900),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    'decpt': '.'},
-                'NetworkEnergy': {
-                    'coordinates': (310, 836, 400, 866),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    'decpt': '.'}
+                    'decpt': '.',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'energy',
+                    'unit': 'kWh',
+                    'valueTemplate': '{{ value_json.NetworkEnergyWithDefrosting | float | round (1) }}',
+                }
             }
         }
     }
