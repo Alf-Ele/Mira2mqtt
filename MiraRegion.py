@@ -254,7 +254,6 @@ class MiraRegion:
         # Set locale for parsing localized values
         locale.setlocale(locale.LC_ALL, self.ui_locale)
 
-        strvalue = self.clean_numeric_separators(strvalue)
         numvalue: float
 
         try:
@@ -271,7 +270,7 @@ class MiraRegion:
 
     def clean_num_value(self, key: str, value: str) -> str:
         # Cleanup and parse numeric data before publishing
-        strvalue = value.strip()
+        strvalue = self.clean_numeric_separators(value.strip())
         numvalue = None
         if str(strvalue).endswith("kWh"):
             strvalue = str(strvalue).removesuffix("kWh")
@@ -297,8 +296,7 @@ class MiraRegion:
                     numvalue /= 10
 
             if 'mandatoryDecimalPlaces' in self.regionConfig:
-                check_string = str(numvalue)
-                decimals = check_string.split('.')
+                decimals = strvalue.split(self.real_decpt)
 
                 # We don't have decimals after the dot
                 if len(decimals) <= 1:
@@ -358,6 +356,19 @@ class MiraRegion:
             if self.DEBUG_OUTPUT:
                 if len(text) > 1:
                     print(f"... retrieved text after splitting: '{current_text}'")
+
+            # Check for mandatory text entries:
+            if 'MandatoryText' in self.regionConfig:
+                mandatoryTexts = []
+                if isinstance(self.regionConfig['MandatoryText'], list):
+                    mandatoryTexts = self.regionConfig['MandatoryText']
+                else:
+                    mandatoryTexts.append(self.regionConfig['MandatoryText'])
+
+                for t in mandatoryTexts:
+                    if t not in current_text:
+                        print(f"... {t} not found for {current_key}")
+                        current_text = ''
 
             # Strip text from leading and trailing spaces
             current_text = current_text.strip()
