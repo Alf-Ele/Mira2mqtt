@@ -97,7 +97,7 @@ CONFIG = {
                     #   thresh -> adaptive thresholding
                     'preProcessing': 'contrast',
                     # tesseract OCR configuration to enhance data retrieval
-                    'ocrConfig': '--oem 3 --psm 6' ,
+                    'ocrConfig': '--oem 3 --psm 6',
                     # optional check for decimal places (sometimes the OCR looses th decimal
                     # point) -> value gets corrected by shifting the decimal point
                     'mandatoryDecimalPlaces': 1,
@@ -110,6 +110,7 @@ CONFIG = {
                     'coordinates': (10, 250, 110, 290),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
                     # Home Assistant auto discovery
                     'deviceClass': 'power',
                     'unit': 'W',
@@ -127,7 +128,8 @@ CONFIG = {
                 'EnvironmentPower': {
                     'coordinates': (490, 260, 590, 290),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': '',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
                     # Home Assistant auto discovery
                     'deviceClass': 'power',
                     'unit': 'W',
@@ -165,7 +167,7 @@ CONFIG = {
                 'HotWaterTemp': {
                     'coordinates': (205, 770, 305, 808),
                     'preProcessing': 'contrast+invert',
-                    'ocrConfig': '',
+                    'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
                     'deviceClass': 'temperature',
                     'unit': '°C',
@@ -188,10 +190,10 @@ CONFIG = {
             # In order to retrieve the data we need, it is sometimes
             # necessary to perform a long sequence of mouse clicks.
             'MouseMovesAndClicks': [
-                {'moveTo': [450, 960],
-                 'MandatoryText': ['Wärmepumpe', 'Heizen', 'Warmwasser', 'Statistik']},
+                {'moveTo': [450,960],
+                 'MandatoryText': ['Wärmepumpe','Heizen','Warmwasser','Statistik']},
                 {'moveTo': [230, 410],
-                 'MandatoryText': ['Wärmeautarkie', 'Wärmepumpe', 'Energiebilanz']},
+                 'MandatoryText': ['Wärmeautarkie','Wärmepumpe','Energiebilanz']},
             ],
             'Regions': {
                 'HeatingEnergy': {
@@ -209,11 +211,12 @@ CONFIG = {
                     'valueTemplate': '{{ value_json.HeatingEnergy | float | round (1) }}',
                 },
                 'HotWaterEnergy': {
-                    'coordinates': (66, 870, 160, 900),
+                    'coordinates': (66, 870, 270, 900),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     'maxValue': 50,
                     'decpt': '.',
+                    'MandatoryText': 'Warmwasser',
                     # Home Assistant auto discovery
                     'deviceClass': 'energy',
                     'unit': 'kWh',
@@ -237,8 +240,7 @@ CONFIG = {
             'MouseMovesAndClicks': [
                 {'moveTo': [540, 210],
                  'MandatoryText': ['Abtauen']},
-                {'moveTo': [335, 345]},
-                {'moveTo': [335, 400]}
+                {'moveTo': [335, 345]}
             ],
             'Regions': {
                 'NetworkEnergyWithDefrosting': {
