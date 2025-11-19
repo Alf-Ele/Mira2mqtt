@@ -359,13 +359,13 @@ class MiraRegion:
 
             # Check for mandatory text entries:
             if 'MandatoryText' in self.regionConfig:
-                mandatoryTexts = []
+                mandatory_texts = []
                 if isinstance(self.regionConfig['MandatoryText'], list):
-                    mandatoryTexts = self.regionConfig['MandatoryText']
+                    mandatory_texts = self.regionConfig['MandatoryText']
                 else:
-                    mandatoryTexts.append(self.regionConfig['MandatoryText'])
+                    mandatory_texts.append(self.regionConfig['MandatoryText'])
 
-                for t in mandatoryTexts:
+                for t in mandatory_texts:
                     if t not in current_text:
                         print(f"... {t} not found for {current_key}")
                         current_text = ''
@@ -377,10 +377,18 @@ class MiraRegion:
             if current_text.upper() == '0WW' or current_text.upper() == '0W':
                 current_text = '0W'
 
+            # Workaround for wrongly recognized numbers
+            corrected_text = current_text.replace("A","4")
+            corrected_text = corrected_text.replace("B", "8")
+            corrected_text = corrected_text.replace("D","0")
+            corrected_text = corrected_text.replace("I","1")
+            corrected_text = corrected_text.replace("T", "7")
+            corrected_text = corrected_text.replace("ı", " ")
+
             # Extract values (temperature or power)
-            match_temp = re.search(r"(-?\d{1,2},?\d)\s*°C", current_text)
-            match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", current_text)
-            match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", current_text)
+            match_temp = re.search(r"(-?\d{1,2},?\d)\s*°C", corrected_text)
+            match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", corrected_text)
+            match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", corrected_text)
 
             if match_temp:
                 value = self.clean_num_value(current_key, match_temp.group(1) + "°C")
