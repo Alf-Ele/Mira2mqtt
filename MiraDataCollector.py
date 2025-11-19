@@ -298,9 +298,9 @@ class MiraPage(MiraDataCollector):
             # Move mouse to coordinates and click
             self.vncclient.mouseMove(m['moveTo'][0],
                                      m['moveTo'][1])
-            time.sleep(0.2)
+            time.sleep(0.5)
             self.vncclient.mousePress(1)
-            time.sleep(2)
+            time.sleep(3)
 
             self.take_screenshot()
 
