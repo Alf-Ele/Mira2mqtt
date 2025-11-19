@@ -189,6 +189,9 @@ class MiraDataCollector:
         self.vncclient.mouseMove(100, 100)
         time.sleep(0.5)
 
+        mira_pages=[]
+
+        # Traverse all pages and make screenshots
         for page, page_config in self.config['Pages'].items():
             print("Processing page %s..." % page)
             mira_page = MiraPage(self, page)
@@ -196,11 +199,13 @@ class MiraDataCollector:
             if page_config['MouseMovesAndClicks'] is not None:
                 mandatory_found = mira_page.do_mouse_moves_and_click(page_config['MouseMovesAndClicks'])
                 if not mandatory_found:
-                    if self.DEBUG_OUTPUT:
-                        print(f"Mandatory text '{page_config['MandatoryText']}' not found on {page}!")
                     continue
 
             mira_page.take_screenshot()
+            mira_pages.append(mira_page)
+
+        # Travers all pages a second time to process their regions
+        for mira_page in mira_pages:
             mira_page.process_regions()
             mira_page.delete_screenshot()
             self.data.update(mira_page.data)
