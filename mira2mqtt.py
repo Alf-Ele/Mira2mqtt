@@ -205,6 +205,7 @@ CONFIG = {
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     'decpt': '.',
+                    'defaultToZero': True,
                     # Home Assistant auto discovery
                     'deviceClass': 'energy',
                     'unit': 'kWh',
@@ -217,6 +218,7 @@ CONFIG = {
                     'maxValue': 50,
                     'decpt': '.',
                     'MandatoryText': 'Warmwasser',
+                    'defaultToZero': True,
                     # Home Assistant auto discovery
                     'deviceClass': 'energy',
                     'unit': 'kWh',
@@ -227,6 +229,7 @@ CONFIG = {
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     'decpt': '.',
+                    'defaultToZero': True,
                     # Home Assistant auto discovery
                     'deviceClass': 'energy',
                     'unit': 'kWh',
@@ -248,6 +251,7 @@ CONFIG = {
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     'decpt': '.',
+                    'defaultToZero': True,
                     # Home Assistant auto discovery
                     'deviceClass': 'energy',
                     'unit': 'kWh',

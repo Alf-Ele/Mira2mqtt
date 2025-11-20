@@ -16,7 +16,6 @@ import re
 import cv2
 import numpy as np
 import pytesseract
-import json
 
 class MiraRegion:
     """
@@ -35,6 +34,7 @@ class MiraRegion:
     decpt = None
     img_prefix = None
     regionConfig = None
+    default_to_zero = False
 
     DebugDeleteImageAfterSuccess = False
 
@@ -67,6 +67,7 @@ class MiraRegion:
         self.language = language
         self.ui_locale = ui_locale
         self.decpt = region_config['decpt'] if 'decpt' in region_config else None
+        self.default_to_zero = True if 'defaultToZero' in region_config and region_config['defaultToZero'] else False
 
         #cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -254,13 +255,12 @@ class MiraRegion:
         # Set locale for parsing localized values
         locale.setlocale(locale.LC_ALL, self.ui_locale)
 
-        numvalue: float
+        numvalue: float = 0.0
 
         try:
             numvalue = locale.atof(strvalue)
         except ValueError:
             print(f"... ERROR: could not get numeric value for {strvalue}")
-            numvalue: float = 0.0
         finally:
             # reset the locale
             locale.setlocale(locale.LC_NUMERIC, locale.getdefaultlocale())
@@ -310,6 +310,9 @@ class MiraRegion:
         else:
             if self.DEBUG_OUTPUT:
                 print(f"... cleaned string value for {key}  = '{strvalue}'")
+
+        if self.default_to_zero and strvalue == "":
+            strvalue = "0.0"
 
         return strvalue
     # end clean_num_value()
@@ -425,8 +428,12 @@ class MiraRegion:
                     print(f"... retrieved text: '{current_text}'")
 
                 if defined_unit is not None and defined_unit != 'None':
-                    data[current_key] = ''
                     print(f"... Skipping text value '{current_text}' for value of unit {defined_unit}!")
+
+                    if self.default_to_zero:
+                        data[current_key] = '0.0'
+                    else:
+                        data[current_key] = ''
                 else:
                     #data[current_key] = "N/A"
                     data[current_key] = current_text

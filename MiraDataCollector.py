@@ -300,7 +300,7 @@ class MiraPage(MiraDataCollector):
                                      m['moveTo'][1])
             time.sleep(0.5)
             self.vncclient.mousePress(1)
-            time.sleep(3)
+            time.sleep(4)
 
             self.take_screenshot()
 
