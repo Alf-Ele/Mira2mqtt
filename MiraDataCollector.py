@@ -57,7 +57,7 @@ class MiraDataCollector:
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         self.data = {'timestamp': self.timestamp}
         self.auto_discovery: list = []
-        self.config['autoDiscoveryTemplate']['stat_t'] = self.config['mqttStatusTopic']
+        #self.config['autoDiscoveryTemplate']['stat_t'] = self.config['mqttStatusTopic']
 
         if "DEBUG_OUTPUT" in os.environ and os.environ["DEBUG_OUTPUT"] == "1":
             self.DEBUG_OUTPUT = True
@@ -131,9 +131,9 @@ class MiraDataCollector:
 
         # Publish message
         if retain:
-            msg_info = self.mqtt_client.publish(topic, message, qos=0, retain=True)
+            msg_info = self.mqtt_client.publish(topic, message, qos=1, retain=True)
         else:
-            msg_info = self.mqtt_client.publish(topic, message)
+            msg_info = self.mqtt_client.publish(topic, message, qos=1)
         self.unacked_publish.add(msg_info.mid)
         msg_info.wait_for_publish()
     # end mqtt_publish()
@@ -145,17 +145,17 @@ class MiraDataCollector:
         # Publish auto discovery message
         if self.config['mqttAutoDiscovery']:
             if self.DEBUG_OUTPUT:
-                print("Number of auto discovery mesages: %i" % len(self.auto_discovery))
+                print("Number of auto discovery messages: %i" % len(self.auto_discovery))
             for i in range(len(self.auto_discovery)):
                 if self.DEBUG_OUTPUT:
                     print("-------- AUTO DISCOVERY COMPONENT --------")
                     print(json.dumps(self.auto_discovery[i]))
 
                 topic: str = self.config['mqttAutoDiscoveryTopic']
-                unique_id: str = self.auto_discovery[i]['uniq_id']
-                topic = topic.replace('%s', unique_id)
+                name: str = self.auto_discovery[i]['name']
+                topic = topic.replace('%s', name)
                 if self.DEBUG_OUTPUT:
-                    print(f"Setting unique id '{unique_id}' to topic name -> '{topic}'")
+                    print(f"Setting sensor name '{name}' to topic name -> '{topic}'")
 
                 # Publish auto discover message
                 self.mqtt_publish(topic,
@@ -167,6 +167,8 @@ class MiraDataCollector:
         # Publish data
         self.mqtt_publish(self.config['mqttStatusTopic'],
                           json.dumps(self.data))
+        if self.DEBUG_OUTPUT:
+            print(f"State messages published to {self.config['mqttStatusTopic']}")
     # end publish_data()
 
     def vnc_connect(self) -> None:
@@ -348,5 +350,15 @@ class MiraPage(MiraDataCollector):
             if self.config['mqttAutoDiscovery']:
                 for dm_part in region.get_auto_discovery_data():
                     discovery_message: dict = self.config['autoDiscoveryTemplate'].copy()
-                    discovery_message.update(dm_part)
+                    # Add device id to sensor unique id
+                    dm_part['uniq_id'] = discovery_message['device']['ids'][0] + '-' + dm_part['uniq_id']
+                    # Now add the discovery message part to get the final message
+                    #discovery_message.update(dm_part)
+                    discovery_message['name'] = dm_part['name']
+                    discovery_message['uniq_id'] = dm_part['uniq_id']
+                    discovery_message['dev_cla'] = dm_part['dev_cla']
+                    discovery_message['state_class'] = dm_part['state_class']
+                    discovery_message['unit_of_meas'] = dm_part['unit_of_meas']
+                    discovery_message['val_tpl'] = dm_part['val_tpl']
+
                     self.auto_discovery.append(discovery_message)

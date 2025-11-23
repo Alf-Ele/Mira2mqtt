@@ -41,15 +41,23 @@ CONFIG = {
     'mqttClientId': 'MiraDataCollector',
     'mqttUser': 'mira',
     'mqttPassword': 'pleasechangeme',
-    'mqttStatusTopic': 'mira/OVUM-AC312P/state',
+    'mqttStatusTopic': 'mira2mqtt/41fe3f98401a/state',
 
     # MQTT auto discovery - experimental
-    'mqttAutoDiscovery': False,
-    'mqttAutoDiscoveryTopic': 'homeassistant/climate/OVUM-AC312P-%s/config',
+    'mqttAutoDiscovery': True,
+    'mqttAutoDiscoveryTopic': 'homeassistant/climate/41fe3f98401a/%s/config',
     # Template used for auto discovery messages
     'autoDiscoveryTemplate': {
+        "stat_t": "mira2mqtt/41fe3f98401a/state",
+        "name": "",
+        "uniq_id": "",
+        "dev_cla": "",
+        "state_class": "",
+        "unit_of_meas": "",
+        "val_tpl": "",
         'device': {
-            'ids': ['OVUM-AC312P'],
+            'ids': ['41fe3f98401a'],
+            #'ids': ['0024bd0684ff'],
             'mf': 'Ovum',
             'mdl': 'AC312P',
             'name': 'Ovum AC312P',
@@ -73,7 +81,7 @@ CONFIG = {
                 # x and y coordinates
                 {'moveTo': [10,10],
                  # optional list of mandatory text we will check the page content for.
-                 'MandatoryText': ['Wärmepumpe','Netzleistung','Umwelt']}
+                 'MandatoryText': ['Wärmepumpe','Netzleistung']}
             ],
             # Within the page we now need to define at least one region
             # where we want to retrieve data
