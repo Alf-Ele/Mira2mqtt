@@ -13,6 +13,7 @@ import locale
 import logging
 import os
 import time
+import tempfile
 import cv2
 import pytesseract
 import json
@@ -34,6 +35,7 @@ class MiraDataCollector:
     timestamp: datetime = None
     data: dict = None
     auto_discovery: list = None
+
     screenshot_path: str = None
     mqtt_client: mqtt = None
     mqtt_connection_etablished = False
@@ -209,7 +211,6 @@ class MiraDataCollector:
         # Travers all pages a second time to process their regions
         for mira_page in mira_pages:
             mira_page.process_regions()
-            mira_page.delete_screenshot()
             self.data.update(mira_page.data)
 
             # Assemble auto discovery messages
@@ -233,6 +234,7 @@ class MiraPage(MiraDataCollector):
     DEBUG_IMAGE_WRITING = False
 
     name: str = None
+    pil_image = None
     img: cv2 = None
     screenshot_path: str = None
 
@@ -256,26 +258,30 @@ class MiraPage(MiraDataCollector):
     # end __init__()
 
     def take_screenshot(self) -> None:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.screenshot_path = self.name + f"screenshot_{timestamp}.png"
         self.vncclient.refreshScreen()
-        self.vncclient.captureScreen(self.screenshot_path)
-        if self.DEBUG_OUTPUT:
-            print(f"Screenshot stored: {self.screenshot_path}")
-    # end take_screenshot()
 
-    def delete_screenshot(self) -> None:
-        if self.screenshot_path is None:
-            if self.DEBUG_OUTPUT:
-                print("No screenshot to be deleted.")
-        else:
-            if (not 'DebugKeepScreenshots' in self.config
-                    or not self.config['DebugKeepScreenshots']):
-                try:
-                    os.remove(self.screenshot_path)
-                except FileNotFoundError:
-                    print(f"File '{self.screenshot_path}' could not be deleted.")
-    # end delete_screenshot()
+        # Capture screen to memory
+        temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+        temp_filename = temp_file.name
+        temp_file.close()
+        try:
+            self.vncclient.captureScreen(temp_filename)
+            self.pil_image = Image.open(temp_filename)
+
+            if 'DebugKeepScreenshots' in self.config and self.config['DebugKeepScreenshots']:
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                self.screenshot_path = self.name + f"screenshot_{timestamp}.png"
+                self.pil_image.save(self.screenshot_path, "PNG")
+
+                if self.DEBUG_OUTPUT:
+                    print(f"Screenshot stored: {self.screenshot_path}")
+
+        except Exception as e:
+            print(f"An error ocurred: {e}")
+        finally:
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
+    # end take_screenshot()
 
     def check_mandatory_content(self, mandatory_text: list[str]) -> bool:
         # Check, if mandatory text can be found in page
@@ -283,8 +289,9 @@ class MiraPage(MiraDataCollector):
         if mandatory_text is not None:
             if self.DEBUG_OUTPUT:
                 print ("Checking for mandatory texts: %s" % ('+'.join(mandatory_text)))
-            image = Image.open(self.screenshot_path)
-            text = pytesseract.image_to_string(image, self.config['OCRLanguage'])
+            #image = Image.open(self.screenshot_path)
+            #text = pytesseract.image_to_string(image, self.config['OCRLanguage'])
+            text = pytesseract.image_to_string(self.pil_image, self.config['OCRLanguage'])
 
             for t in mandatory_text:
                 if t not in text:
@@ -312,9 +319,6 @@ class MiraPage(MiraDataCollector):
             # Check if mandatory text exists
             mandatory_found = self.check_mandatory_content(m['MandatoryText'])
 
-            # Delete screenshot
-            self.delete_screenshot()
-
             if not mandatory_found:
                 print("Mandatory text [%s] not found in page!" % m['MandatoryText'] )
                 return False
@@ -325,8 +329,10 @@ class MiraPage(MiraDataCollector):
         page_config = self.config['Pages'][self.name]
 
         # Load image with OpenCV and then Pillow
-        img = cv2.imread(self.screenshot_path)
-        image = Image.fromarray(img)
+        #img = cv2.imread(self.screenshot_path)
+        #image = Image.fromarray(img)
+        # Load image from class instance
+        image = self.pil_image
 
         # Loop over all regions of current page
         regions = page_config['Regions']
