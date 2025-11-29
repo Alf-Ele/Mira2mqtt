@@ -88,10 +88,10 @@ CONFIG = {
             'Regions': {
                 # Key of the region, must be unique over all pages and regions
                 'OutdoorTemp': {
-                    # Optionally, you can define a secondary key in case we want to
-                    # retrieve secondary data which follows the primary data,
-                    # separated by brackets (...)
-                    'secondaryKey': 'OutdoorTempCurrent',
+                    # Optionally, you can define additional keys in case we want to
+                    # retrieve further data which follows the primary data.
+                    'valueSeparators': '\(',
+                    'additionalKeys': ['OutdoorTempCurrent'],
                     # Coordinates of the region
                     # x/y top left and x/y bottom right
                     'coordinates': (50, 80, 195, 100),
@@ -163,14 +163,16 @@ CONFIG = {
                 },
                 'HeatingMode': {
                     'coordinates': (60, 728, 558, 758),
-                    'secondaryKey': 'HeatingTargetTemp',
+                    'valueSeparators': '\(|\) -',
+                    'additionalKeys': ['HeatingTargetTemp', 'HeatingRequirement'],
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
-                    'deviceClass': ['None', 'temperature'],
-                    'unit': ['None', '°C'],
+                    'deviceClass': ['None', 'temperature', 'None'],
+                    'unit': ['None', '°C', 'None'],
                     'valueTemplate': ['{{ value_json.HeatingMode }}',
-                                      '{{ value_json.HeatingTargetTemp | float | round(1) }}'],
+                                      '{{ value_json.HeatingTargetTemp }}',
+                                      '{{ value_json.HeatingRequirement }}'],
                 },
                 'HotWaterTemp': {
                     'coordinates': (205, 770, 305, 808),
@@ -183,14 +185,16 @@ CONFIG = {
                 },
                 'HotWaterMode': {
                     'coordinates': (60, 806, 558, 835),
-                    'secondaryKey': 'HotWaterTargetTemp',
+                    'valueSeparators': '\(|\) -',
+                    'additionalKeys': ['HotWaterTargetTemp','HotWaterRequirement'],
                     'preProcessing': 'contrast+invert+denoise+thresh',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
-                    'deviceClass': ['None', 'temperature'],
-                    'unit': ['None', '°C'],
+                    'deviceClass': ['None', 'temperature', 'None'],
+                    'unit': ['None', '°C', 'None'],
                     'valueTemplate': ['{{ value_json.HotWaterMode }}',
-                                      '{{ value_json.HotWaterTargetTemp | float | round(1) }}'],
+                                      '{{ value_json.HotWaterTargetTemp }}',
+                                      '{{ value_json.HotWaterRequirement }}'],
                 },
             }
         },

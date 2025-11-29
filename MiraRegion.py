@@ -35,6 +35,7 @@ class MiraRegion:
     img_prefix = None
     regionConfig = None
     default_to_zero = False
+    value_separators = None
 
     DebugDeleteImageAfterSuccess = False
 
@@ -68,6 +69,7 @@ class MiraRegion:
         self.ui_locale = ui_locale
         self.decpt = region_config['decpt'] if 'decpt' in region_config else None
         self.default_to_zero = True if 'defaultToZero' in region_config and region_config['defaultToZero'] else False
+        self.value_separators = region_config['valueSeparators'] if 'valueSeparators' in region_config else '\('
 
         #cv2.imwrite("processed-" + pp + "-" + self.key + ".png", self.img)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -322,37 +324,51 @@ class MiraRegion:
         data = {}
 
         # Do we have a secondary key?
-        if 'secondaryKey' in self.regionConfig:
-            secondary_key = self.regionConfig['secondaryKey']
+        if 'additionalKeys' in self.regionConfig:
+            if isinstance(self.regionConfig['additionalKeys'], list):
+                keys = [self.key] + self.regionConfig['additionalKeys']
+            else:
+                keys = [self.key] + [self.regionConfig['additionalKeys']]
         else:
-            secondary_key = None
+            keys = [self.key]
 
-        # Retrieve text from region
+        # Retrieve and split text from region
         text = self.process_and_retrieve()
-        if MiraRegion.DEBUG_OUTPUT:
-            print("Detected text in region %s: '%s'" % (self.key, text))
-
-        # Split text if we've got a secondary value in brackets
-        if "(" in text:
-            texts = text.split("(")
+        if len(keys) > 1:
+            texts = re.split(self.value_separators, text)
         else:
             texts = [text]
 
-        # Process the text parts
+        #Remove empty text snippets
         i=0
-        for current_text in texts:
+        for t in texts:
+            if t.strip() == "":
+                texts.pop(i)
+            else:
+                i += 1
+
+        if self.DEBUG_OUTPUT:
+            print("... got text snippets:  [%s]" % '|'.join(texts))
+            print("... got following keys: [%s]" % '|'.join(keys))
+
+        # Process the text parts
+        #i=0
+        #for current_text in texts:
+        for i in range(len(texts)):
+            current_text = texts[i]
+            print("... current key: #%i/%i" % (i, len(keys)))
             # Get key for current value
-            current_key = self.key
-            if i > 0:
-                if secondary_key is None:
-                    continue
-                current_key = secondary_key
+            try:
+                current_key = keys[i]
+            except IndexError:
+                continue
 
             # Get unit of current value - if present
             defined_unit = None
             if 'unit' in self.regionConfig:
                 if isinstance(self.regionConfig['unit'], list):
-                    defined_unit = self.regionConfig['unit'][i]
+                    if len(self.regionConfig['unit']) > i:
+                        defined_unit = self.regionConfig['unit'][i]
                 else:
                     defined_unit = self.regionConfig['unit']
 
@@ -440,15 +456,16 @@ class MiraRegion:
                     data[current_key] = current_text
                     print(f"... Detected text: {current_text}")
 
-            i += 1
+            #i += 1
 
         if self.DebugDeleteImageAfterSuccess:
-            if self.key in data or secondary_key in data:
-                for f in glob.glob(f"{self.img_prefix}*.png"):
-                    try:
-                        os.remove(f)
-                    except FileNotFoundError:
-                        print(f"File '{f}' could not be deleted.")
+            for key in keys:
+                if key in data:
+                    for f in glob.glob(f"{self.img_prefix}*.png"):
+                        try:
+                            os.remove(f)
+                        except FileNotFoundError:
+                            print(f"File '{f}' could not be deleted.")
 
         return data
     # end processNumericValues()
@@ -458,8 +475,8 @@ class MiraRegion:
         keys = [self.key]
 
         # Do we have a secondary key?
-        if 'secondaryKey' in self.regionConfig:
-            keys.append(self.regionConfig['secondaryKey'])
+        if 'additionalKeys' in self.regionConfig:
+            keys.append(self.regionConfig['additionalKeys'])
 
         i=0
         for k in keys:
