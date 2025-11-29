@@ -90,7 +90,7 @@ CONFIG = {
                 'OutdoorTemp': {
                     # Optionally, you can define additional keys in case we want to
                     # retrieve further data which follows the primary data.
-                    'valueSeparators': '\(',
+                    'valueSeparators': r'\(',
                     'additionalKeys': ['OutdoorTempCurrent'],
                     # Coordinates of the region
                     # x/y top left and x/y bottom right
@@ -163,7 +163,7 @@ CONFIG = {
                 },
                 'HeatingMode': {
                     'coordinates': (60, 728, 558, 758),
-                    'valueSeparators': '\(|\) -',
+                    'valueSeparators': r'\(|\) -',
                     'additionalKeys': ['HeatingTargetTemp', 'HeatingRequirement'],
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
@@ -185,7 +185,7 @@ CONFIG = {
                 },
                 'HotWaterMode': {
                     'coordinates': (60, 806, 558, 835),
-                    'valueSeparators': '\(|\) -',
+                    'valueSeparators': r'\(|\) -',
                     'additionalKeys': ['HotWaterTargetTemp','HotWaterRequirement'],
                     'preProcessing': 'contrast+invert+denoise+thresh',
                     'ocrConfig': '--oem 3 --psm 6',
