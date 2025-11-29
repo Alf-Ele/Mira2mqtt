@@ -390,7 +390,7 @@ class MiraRegion:
 
             # Extract values (temperature or power)
             match_temp = re.search(r"(-?\d{1,2},?\d)\s*°C", corrected_text)
-            match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|mwh|Mwh|MWh)", corrected_text)
+            match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|kKWh|mwh|Mwh|MWh)", corrected_text)
             match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", corrected_text)
 
             if match_temp:
@@ -402,6 +402,7 @@ class MiraRegion:
                 unit = (match_energy.group(2)).replace("w", "W")
                 unit = unit.replace("H", "h")
                 unit = unit.replace("KW", "kW")
+                unit = unit.replace("kKW", "kW")
                 unit = unit.replace("mW", "MW")
 
                 # Get corrected numeric value
