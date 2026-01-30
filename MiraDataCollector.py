@@ -57,7 +57,7 @@ class MiraDataCollector:
 
         # Init data
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        self.data = {'timestamp': self.timestamp}
+        self.data = {'Timestamp': self.timestamp}
         self.auto_discovery: list = []
         #self.config['autoDiscoveryTemplate']['stat_t'] = self.config['mqttStatusTopic']
 
@@ -230,8 +230,8 @@ class MiraPage(MiraDataCollector):
     A page in the Mira user interface.
     """
 
-    DEBUG_OUTPUT = False
-    DEBUG_IMAGE_WRITING = False
+    DEBUG_OUTPUT = True
+    DEBUG_IMAGE_WRITING = True
 
     name: str = None
     pil_image = None

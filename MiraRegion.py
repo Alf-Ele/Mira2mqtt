@@ -37,7 +37,7 @@ class MiraRegion:
     default_to_zero = False
     value_separators = None
 
-    DebugDeleteImageAfterSuccess = False
+    DebugDeleteImageAfterSuccess = True
 
     def __init__(self,
                  key: str,
@@ -248,8 +248,9 @@ class MiraRegion:
             # Change decimal point
             ret_value = value.replace(self.decpt, self.real_decpt)
 
-        # Remove thousands separator
-        ret_value = ret_value.replace(self.real_thpt, '')
+        if self.real_thpt is not None:
+	    # Remove thousands separator
+            ret_value = ret_value.replace(self.real_thpt, '')
 
         return ret_value
 
@@ -290,6 +291,9 @@ class MiraRegion:
             numvalue = self.get_numeric_value(strvalue)
         elif str(strvalue).endswith("°C"):
             strvalue = str(strvalue).removesuffix("°C")
+            numvalue = self.get_numeric_value(strvalue)
+        elif str(strvalue).endswith("%"):
+            strvalue = str(strvalue).removesuffix("%")
             numvalue = self.get_numeric_value(strvalue)
 
         if numvalue is not None:
@@ -403,16 +407,23 @@ class MiraRegion:
             corrected_text = corrected_text.replace("I","1")
             corrected_text = corrected_text.replace("T", "7")
             corrected_text = corrected_text.replace("ı", " ")
+#            corrected_text = corrected_text.replace("%", "W")
+
 
             # Extract values (temperature or power)
             match_temp = re.search(r"(-?\d{1,2},?\d)\s*°C", corrected_text)
             match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|kKWh|mwh|Mwh|MWh)", corrected_text)
             match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", corrected_text)
+            match_battery = re.search(r"(\d{1,3})\s*\%", corrected_text)
 
             if match_temp:
                 value = self.clean_num_value(current_key, match_temp.group(1) + "°C")
                 data[current_key] = value
                 print(f"... Detected temperature: {value}")
+            elif match_battery:
+                value = self.clean_num_value(current_key, match_battery.group(1) + "%")
+                data[current_key] = value
+                print(f"... Detected battery: {value}")
             elif match_energy:
                 # Correct uper/lower case errors in unit
                 unit = (match_energy.group(2)).replace("w", "W")

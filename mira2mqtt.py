@@ -24,7 +24,7 @@ DEBUG_IMAGE_WRITING = True
 """Configuration"""
 CONFIG = {
     # Heat pump connection data
-    'OvumHostname': '192.168.123.45',
+    'OvumHostname': '192.168.178.157',
     'OvumVNCPort': 5900,
 
     # OCR language and locale must match the language setting in Mira
@@ -35,16 +35,16 @@ CONFIG = {
     'TesseractPath': '/usr/bin/tesseract',
 
     # MQTT configuration
-    'mqttUsage': False,
-    'mqttBroker': 'localhost',
+    'mqttUsage': True,
+    'mqttBroker': '192.168.178.29',
     'mqttPort': 1883,
     'mqttClientId': 'MiraDataCollector',
-    'mqttUser': 'mira',
-    'mqttPassword': 'pleasechangeme',
-    'mqttStatusTopic': 'mira2mqtt/41fe3f98401a/state',
+    'mqttUser': '',
+    'mqttPassword': '',
+    'mqttStatusTopic': 'mira2mqtt/Ovum_AC208P/sensors',
 
     # MQTT auto discovery - experimental
-    'mqttAutoDiscovery': True,
+    'mqttAutoDiscovery': False,
     'mqttAutoDiscoveryTopic': 'homeassistant/climate/41fe3f98401a/%s/config',
     # Template used for auto discovery messages
     'autoDiscoveryTemplate': {
@@ -59,8 +59,8 @@ CONFIG = {
             'ids': ['41fe3f98401a'],
             #'ids': ['0024bd0684ff'],
             'mf': 'Ovum',
-            'mdl': 'AC312P',
-            'name': 'Ovum AC312P',
+            'mdl': 'AC208P',
+            'name': 'Ovum AC208P',
             'via_device': 'mira2mqtt',
         },
     },
@@ -81,7 +81,7 @@ CONFIG = {
                 # x and y coordinates
                 {'moveTo': [10,10],
                  # optional list of mandatory text we will check the page content for.
-                 'MandatoryText': ['Wärmepumpe','Netzleistung']}
+                 'MandatoryText': ['Wärmepumpe','Netz']}
             ],
             # Within the page we now need to define at least one region
             # where we want to retrieve data
@@ -91,7 +91,7 @@ CONFIG = {
                     # Optionally, you can define additional keys in case we want to
                     # retrieve further data which follows the primary data.
                     'valueSeparators': r'\(',
-                    'additionalKeys': ['OutdoorTempCurrent'],
+                    'additionalKeys': 'OutdoorTempCurrent',
                     # Coordinates of the region
                     # x/y top left and x/y bottom right
                     'coordinates': (50, 80, 195, 100),
@@ -122,35 +122,44 @@ CONFIG = {
                     # Home Assistant auto discovery
                     'deviceClass': 'power',
                     'unit': 'W',
-                    'valueTemplate': '{{ value_json.NetworkPower }}',
+                    'valueTemplate': '{{ value_json.NetworkPower | float | round(1) }}',
                 },
-                'NetworkPower2': {
-                    'coordinates': (250, 502, 350, 522),
+                'Battery': {
+                    'coordinates': (38, 523, 112, 550),
                     'preProcessing': 'contrast',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
-                    'deviceClass': 'power',
-                    'unit': 'W',
-                    'valueTemplate': '{{ value_json.NetworkPower2 | float | round(1) }}',
-                },
-                'EnvironmentPower': {
-                    'coordinates': (490, 260, 590, 290),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    'mandatoryDecimalPlaces': 1,
-                    # Home Assistant auto discovery
-                    'deviceClass': 'power',
-                    'unit': 'W',
-                    'valueTemplate': '{{ value_json.EnvironmentPower | float | round(1) }}',
+                    'deviceClass': 'battery',
+                    'unit': '%',
+                    'valueTemplate': '{{ value_json.Battery | float | round(1) }}',
                 },
                 'HeatingPower': {
-                    'coordinates': (240, 523, 360, 550),
+                    'coordinates': (168, 523, 260, 550),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
                     'deviceClass': 'power',
                     'unit': 'W',
                     'valueTemplate': '{{ value_json.HeatingPower | float | round(1) }}',
+                },
+                'PVPower': {
+                    'coordinates': (310, 523, 440, 550),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.PvPower | float | round(1) }}',
+                },
+                'HousePower': {
+                    'coordinates': (470, 523, 580, 550),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    # Home Assistant auto discovery
+                    'deviceClass': 'power',
+                    'unit': 'W',
+                    'valueTemplate': '{{ value_json.HousePower | float | round(1) }}',
                 },
                 'HeatingTemp': {
                     'coordinates': (154, 704, 248, 732),
@@ -165,7 +174,7 @@ CONFIG = {
                     'coordinates': (60, 728, 558, 758),
                     'valueSeparators': r'\(|\) -',
                     'additionalKeys': ['HeatingTargetTemp', 'HeatingRequirement'],
-                    'preProcessing': 'contrast+invert',
+                    'preProcessing': 'contrast',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
                     'deviceClass': ['None', 'temperature', 'None'],
@@ -174,28 +183,27 @@ CONFIG = {
                                       '{{ value_json.HeatingTargetTemp }}',
                                       '{{ value_json.HeatingRequirement }}'],
                 },
-                'HotWaterTemp': {
-                    'coordinates': (205, 770, 305, 808),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    # Home Assistant auto discovery
-                    'deviceClass': 'temperature',
-                    'unit': '°C',
-                    'valueTemplate': '{{ value_json.HotWaterTemp }}',
-                },
-                'HotWaterMode': {
-                    'coordinates': (60, 806, 558, 835),
-                    'valueSeparators': r'\(|\) -',
-                    'additionalKeys': ['HotWaterTargetTemp','HotWaterRequirement'],
-                    'preProcessing': 'contrast+invert+denoise+thresh',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    # Home Assistant auto discovery
-                    'deviceClass': ['None', 'temperature', 'None'],
-                    'unit': ['None', '°C', 'None'],
-                    'valueTemplate': ['{{ value_json.HotWaterMode }}',
-                                      '{{ value_json.HotWaterTargetTemp }}',
-                                      '{{ value_json.HotWaterRequirement }}'],
-                },
+#                'HotWaterTemp': {
+#                    'coordinates': (205, 770, 305, 808),
+#                    'preProcessing': 'contrast+invert',
+#                    'ocrConfig': '--oem 3 --psm 6',
+#                    # Home Assistant auto discovery
+#                    'deviceClass': 'temperature',
+#                    'unit': '°C',
+#                    'valueTemplate': '{{ value_json.HotWaterTemp }}',
+#                },
+#                'HotWaterMode': {
+#                    'coordinates': (60, 806, 558, 835),
+#                    'valueSeparators': r'\(|\) -',
+#                    'additionalKeys': 'HotWaterTargetTemp',
+#                    'preProcessing': 'contrast+invert+denoise+thresh',
+#                    'ocrConfig': '--oem 3 --psm 6',
+#                    # Home Assistant auto discovery
+#                    'deviceClass': ['None', 'temperature', 'None'],
+#                    'unit': ['None', '°C', 'None'],
+#                    'valueTemplate': ['{{ value_json.HotWaterMode }}',
+#                                      '{{ value_json.HotWaterTargetTemp }}'],
+#                },
             }
         },
         'Statistics': {
@@ -204,7 +212,7 @@ CONFIG = {
             'MouseMovesAndClicks': [
                 {'moveTo': [450,960],
                  'MandatoryText': ['Wärmepumpe','Heizen','Warmwasser','Statistik']},
-                {'moveTo': [230, 410],
+                {'moveTo': [360, 410],
                  'MandatoryText': ['Wärmeautarkie','Wärmepumpe','Energiebilanz']},
             ],
             'Regions': {
@@ -223,19 +231,19 @@ CONFIG = {
                     'unit': 'kWh',
                     'valueTemplate': '{{ value_json.HeatingEnergy | float | round (1) }}',
                 },
-                'HotWaterEnergy': {
-                    'coordinates': (66, 870, 270, 900),
-                    'preProcessing': 'contrast+invert',
-                    'ocrConfig': '--oem 3 --psm 6',
-                    'maxValue': 50,
-                    'decpt': '.',
-                    'MandatoryText': 'Warmwasser',
-                    'defaultToZero': True,
-                    # Home Assistant auto discovery
-                    'deviceClass': 'energy',
-                    'unit': 'kWh',
-                    'valueTemplate': '{{ value_json.HotWaterEnergy | float | round (1) }}',
-                },
+#                'HotWaterEnergy': {
+#                    'coordinates': (66, 870, 270, 900),
+#                    'preProcessing': 'contrast+invert',
+#                    'ocrConfig': '--oem 3 --psm 6',
+#                    'maxValue': 50,
+#                    'decpt': '.',
+#                    'MandatoryText': 'Warmwasser',
+#                    'defaultToZero': True,
+#                    # Home Assistant auto discovery
+#                    'deviceClass': 'energy',
+#                    'unit': 'kWh',
+#                    'valueTemplate': '{{ value_json.HotWaterEnergy | float | round (1) }}',
+#                },
                 'NetworkEnergy': {
                     'coordinates': (310, 836, 400, 900),
                     'preProcessing': 'contrast+invert',
@@ -269,6 +277,76 @@ CONFIG = {
                     'unit': 'kWh',
                     'valueTemplate': '{{ value_json.NetworkEnergyWithDefrosting | float | round (1) }}',
                 }
+            }
+        },
+        'Buffer':{
+            'MouseMovesAndClicks': [
+                {'moveTo': [50, 110],
+                 'MandatoryText': ['Wärmepumpe','Puffer']},
+                {'moveTo': [500, 230],
+                 'MandatoryText': ['Puffer', 'HEIZKREISE']},
+            ],
+            'Regions': {
+                'Buffer_IST': {
+                    'coordinates': (425, 770, 520, 800),
+                    'preProcessing': 'contrast',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.Buffer_IST_temperature }}',
+                },
+                'Buffer_SOLL': {
+                    'coordinates': (425, 865, 520, 895),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.Buffer_SOLL_temperature }}',
+                }
+            }
+        },
+        'UnderfloorHeating': {
+            'MouseMovesAndClicks': [
+                {'moveTo': [50,110],
+                 'MandatoryText': ['Wärmepumpe','Heizen']},
+                {'moveTo': [230, 230],
+                 'MandatoryText': ['FUSSBODENHEIZUNG']},
+            ],
+            'Regions': {
+                'Heating_SOLL': {
+                    'coordinates': (325, 435, 420, 465),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.Heating_SOLL | float | round (1) }}',
+                },
+                'Heating_IST': {
+                    'coordinates': (325, 520, 420, 550),
+                    'preProcessing': 'contrast+invert',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    # Home Assistant auto discovery
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_json.Heating_IST | float | round (1) }}',
+                }
+            }
+        },
+        'BackHome': {
+            'MouseMovesAndClicks': [
+                # x and y coordinates
+                {'moveTo': [10, 10],
+                 # optional list of mandatory text we will check the page content for.
+                 'MandatoryText': ['Wärmepumpe','Netz']}
+            ],
+            'Regions': {
             }
         }
     }
