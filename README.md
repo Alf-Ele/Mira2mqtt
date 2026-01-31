@@ -57,5 +57,11 @@ nano mira2mqtt.py
 
 ### Run the programm
 ```
-./mira.sh
+sh mira.sh
+
 ```
+to run in cyclic every 5 mins you may add
+
+/5 * * * * sh /home/<user>/Mira2mqtt/mira sh
+
+to your chrontab
