@@ -19,7 +19,7 @@ from MiraDataCollector import MiraDataCollector
 DEBUG_OUTPUT = True
 
 """Write pre-processed region images used for OCR for debugging purposes"""
-DEBUG_IMAGE_WRITING = True
+DEBUG_IMAGE_WRITING = False
 
 """Configuration"""
 CONFIG = {
@@ -125,7 +125,7 @@ CONFIG = {
                     'valueTemplate': '{{ value_json.NetworkPower | float | round(1) }}',
                 },
                 'Battery': {
-                    'coordinates': (38, 523, 112, 550),
+                    'coordinates': (38, 520, 112, 550),
                     'preProcessing': 'contrast',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
@@ -134,7 +134,7 @@ CONFIG = {
                     'valueTemplate': '{{ value_json.Battery | float | round(1) }}',
                 },
                 'HeatingPower': {
-                    'coordinates': (168, 523, 260, 550),
+                    'coordinates': (168, 520, 260, 550),
                     'preProcessing': 'contrast+invert',
                     'ocrConfig': '--oem 3 --psm 6',
                     # Home Assistant auto discovery
@@ -143,8 +143,8 @@ CONFIG = {
                     'valueTemplate': '{{ value_json.HeatingPower | float | round(1) }}',
                 },
                 'PVPower': {
-                    'coordinates': (310, 523, 440, 550),
-                    'preProcessing': 'contrast+invert',
+                    'coordinates': (310, 520, 440, 550),
+                    'preProcessing': 'contrast',
                     'ocrConfig': '--oem 3 --psm 6',
                     'mandatoryDecimalPlaces': 1,
                     # Home Assistant auto discovery
@@ -168,7 +168,7 @@ CONFIG = {
                     # Home Assistant auto discovery
                     'deviceClass': 'temperature',
                     'unit': '°C',
-                    'valueTemplate': '{{ value_json.HeatingTemp }}',
+                    'valueTemplate': '{{ value_json.HeatingTemp | float | round(1) }}',
                 },
                 'HeatingMode': {
                     'coordinates': (60, 728, 558, 758),
@@ -180,7 +180,7 @@ CONFIG = {
                     'deviceClass': ['None', 'temperature', 'None'],
                     'unit': ['None', '°C', 'None'],
                     'valueTemplate': ['{{ value_json.HeatingMode }}',
-                                      '{{ value_json.HeatingTargetTemp }}',
+                                      '{{ value_json.HeatingTargetTemp | float | round(1) }}',
                                       '{{ value_json.HeatingRequirement }}'],
                 },
 #                'HotWaterTemp': {
@@ -211,7 +211,7 @@ CONFIG = {
             # necessary to perform a long sequence of mouse clicks.
             'MouseMovesAndClicks': [
                 {'moveTo': [450,960],
-                 'MandatoryText': ['Wärmepumpe','Heizen','Warmwasser','Statistik']},
+                 'MandatoryText': ['Statistik']},
                 {'moveTo': [360, 410],
                  'MandatoryText': ['Wärmeautarkie','Wärmepumpe','Energiebilanz']},
             ],
@@ -279,10 +279,37 @@ CONFIG = {
                 }
             }
         },
+        'HeatingPump':{
+            'MouseMovesAndClicks': [
+                {'moveTo': [50, 110],
+                 'MandatoryText': ['Wärmepumpe']},
+                {'moveTo': [90, 230],
+                 'MandatoryText': ['ÜBERSICHT']},
+            ],
+            'Regions': {
+                'HeatingPump_RPS': {
+                    'coordinates': (240, 290, 295, 315),
+                    'preProcessing': 'contrast',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'deviceClass': 'None',
+                    'unit': 'rpm',
+                    'valueTemplate': '{{ value_json.HeatingPump_RPM | float | round (0) }}',
+                },
+                'HeatingPumpInletAirTemp': {
+                    'coordinates': (50, 455, 120, 485),
+                    'preProcessing': 'contrast',
+                    'ocrConfig': '--oem 3 --psm 6',
+                    'mandatoryDecimalPlaces': 1,
+                    'deviceClass': 'temperature',
+                    'unit': '°C',
+                    'valueTemplate': '{{ value_jason.HeatingPumpInletAirTemp | float | round (1) }}',
+                }
+            }
+        },
         'Buffer':{
             'MouseMovesAndClicks': [
                 {'moveTo': [50, 110],
-                 'MandatoryText': ['Wärmepumpe','Puffer']},
+                 'MandatoryText': ['Puffer']},
                 {'moveTo': [500, 230],
                  'MandatoryText': ['Puffer', 'HEIZKREISE']},
             ],
@@ -295,7 +322,7 @@ CONFIG = {
                     # Home Assistant auto discovery
                     'deviceClass': 'temperature',
                     'unit': '°C',
-                    'valueTemplate': '{{ value_json.Buffer_IST_temperature }}',
+                    'valueTemplate': '{{ value_json.Buffer_IST_temperature | float | round(1) }}',
                 },
                 'Buffer_SOLL': {
                     'coordinates': (425, 865, 520, 895),
@@ -305,7 +332,7 @@ CONFIG = {
                     # Home Assistant auto discovery
                     'deviceClass': 'temperature',
                     'unit': '°C',
-                    'valueTemplate': '{{ value_json.Buffer_SOLL_temperature }}',
+                    'valueTemplate': '{{ value_json.Buffer_SOLL_temperature | float | round(1) }}',
                 }
             }
         },
