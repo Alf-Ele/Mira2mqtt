@@ -295,6 +295,9 @@ class MiraRegion:
         elif str(strvalue).endswith("%"):
             strvalue = str(strvalue).removesuffix("%")
             numvalue = self.get_numeric_value(strvalue)
+        elif str(strvalue).endswith("rps"):
+            strvalue = str(strvalue).removesuffix("rps")
+            numvalue = self.get_numeric_value(strvalue)
 
         if numvalue is not None:
             if 'maxValue' in self.regionConfig:
@@ -415,6 +418,7 @@ class MiraRegion:
             match_energy = re.search(r"(-?\d+[.,]?\d*)\s*(kWh|kwh|Kwh|KWh|kKWh|mwh|Mwh|MWh)", corrected_text)
             match_power = re.search(r"(-?\d+[.,]?\d*)\s*(w|W|kW|kw|KW|kkW|kKW)", corrected_text)
             match_battery = re.search(r"(\d{1,3})\s*\%", corrected_text)
+            match_rps = re.search(r"(\d{1,3})\s*rps", corrected_text)
 
             if match_temp:
                 value = self.clean_num_value(current_key, match_temp.group(1) + "°C")
@@ -424,6 +428,10 @@ class MiraRegion:
                 value = self.clean_num_value(current_key, match_battery.group(1) + "%")
                 data[current_key] = value
                 print(f"... Detected battery: {value}")
+            elif match_rps:
+                value = self.clean_num_value(current_key, match_rps.group(1) + "rps")
+                data[current_key] = value
+                print(f"... Detected RPS: {value}")
             elif match_energy:
                 # Correct uper/lower case errors in unit
                 unit = (match_energy.group(2)).replace("w", "W")
